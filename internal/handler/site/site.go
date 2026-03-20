@@ -14,18 +14,23 @@ type Handler struct {
 }
 
 type ViewData struct {
-	SiteName        string
-	SiteTitle       string
-	SiteKeywords    string
-	SiteDescription string
-	FooterText      string
-	ContactInfo     string
-	PageTitle       string
-	CurrentPath     string
-	Posts           interface{}
-	Post            interface{}
-	Messages        interface{}
-	Notice          string
+	SiteName           string
+	SiteTitle          string
+	SiteKeywords       string
+	SiteDescription    string
+	FooterText         string
+	ContactInfo        string
+	HomeTechTitle      string
+	HomeTechText       string
+	HomeLatestTitle    string
+	HomeRecommendTitle string
+	PageTitle          string
+	CurrentPath        string
+	Posts              interface{}
+	RecommendedPosts   interface{}
+	Post               interface{}
+	Messages           interface{}
+	Notice             string
 }
 
 func New(service *service.SiteService) *Handler {
@@ -47,21 +52,50 @@ func (h *Handler) Home(c echo.Context) error {
 		return err
 	}
 
-	posts, err := h.service.HomePosts(12)
+	latestCount := settings.HomeLatestCount
+	if latestCount <= 0 {
+		latestCount = 12
+	}
+	recommendCount := settings.HomeRecommendCount
+	if recommendCount <= 0 {
+		recommendCount = 6
+	}
+
+	posts, err := h.service.HomePosts(latestCount)
+	if err != nil {
+		return err
+	}
+
+	if settings.HomeLatestTitle == "" {
+		settings.HomeLatestTitle = "最新发布"
+	}
+	if settings.HomeRecommendTitle == "" {
+		settings.HomeRecommendTitle = "推荐内容"
+	}
+	if settings.HomeTechTitle == "" {
+		settings.HomeTechTitle = "首页模块"
+	}
+
+	recommendedPosts, err := h.service.RecommendedPosts(recommendCount)
 	if err != nil {
 		return err
 	}
 
 	return c.Render(http.StatusOK, "site/index.html", ViewData{
-		SiteName:        settings.SiteName,
-		SiteTitle:       settings.SiteTitle,
-		SiteKeywords:    settings.SiteKeywords,
-		SiteDescription: settings.SiteDescription,
-		FooterText:      settings.FooterText,
-		ContactInfo:     settings.ContactInfo,
-		PageTitle:       settings.SiteTitle,
-		CurrentPath:     c.Request().URL.Path,
-		Posts:           posts,
+		SiteName:           settings.SiteName,
+		SiteTitle:          settings.SiteTitle,
+		SiteKeywords:       settings.SiteKeywords,
+		SiteDescription:    settings.SiteDescription,
+		FooterText:         settings.FooterText,
+		ContactInfo:        settings.ContactInfo,
+		HomeTechTitle:      settings.HomeTechTitle,
+		HomeTechText:       settings.HomeTechText,
+		HomeLatestTitle:    settings.HomeLatestTitle,
+		HomeRecommendTitle: settings.HomeRecommendTitle,
+		PageTitle:          settings.SiteTitle,
+		CurrentPath:        c.Request().URL.Path,
+		Posts:              posts,
+		RecommendedPosts:   recommendedPosts,
 	})
 }
 

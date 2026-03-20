@@ -11,8 +11,8 @@
   <link href="/assets/css/site.css" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary-subtle">
-    <div class="container">
+  <nav class="navbar navbar-expand-lg site-nav">
+    <div class="container site-shell">
       <a class="navbar-brand fw-bold" href="/">{{.SiteTitle}}</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
         <span class="navbar-toggler-icon"></span>
@@ -25,44 +25,111 @@
       </div>
     </div>
   </nav>
-  <main class="py-4">
-    <div class="container">
-      <section class="mb-4">
-        <div class="p-4 p-md-5 rounded-4 hero-panel">
+  <main class="py-4 py-lg-5">
+    <div class="container site-shell">
+      <section class="mb-5">
+        <div class="p-4 p-md-5 rounded-5 hero-panel">
           <div class="row align-items-center g-4">
-            <div class="col-lg-8">
-              <span class="badge text-bg-warning mb-3">轻量首发方案</span>
-              <h1 class="display-6 fw-bold mb-3">{{.SiteTitle}}</h1>
-              <p class="lead mb-4">{{.SiteDescription}}</p>
-              <div class="d-flex gap-2 flex-wrap">
-                <a class="btn btn-danger" href="/guestbook">进入玩家留言</a>
+            <div class="col-lg-7">
+              <span class="hero-chip mb-3">玛法战报 · 热门发布 · 玩家集结</span>
+              <h1 class="hero-title mb-3">{{.SiteTitle}}</h1>
+              <p class="hero-copy mb-4">{{.SiteDescription}}</p>
+              <div class="d-flex gap-3 flex-wrap">
+                <a class="btn hero-cta btn-lg px-4" href="/guestbook">进入玩家留言</a>
               </div>
             </div>
-            <div class="col-lg-4">
-              <div class="stat-card">
-                <div class="small text-uppercase text-secondary">当前技术栈</div>
-                <div class="fw-semibold mt-2">Go + Echo + html/template + SQLite + Bootstrap + Nginx</div>
+            <div class="col-lg-5">
+              <div class="hero-side-card">
+                <div class="hero-side-emblem"></div>
+                <div class="hero-side-label">{{.HomeTechTitle}}</div>
+                <div class="hero-side-text">{{.HomeTechText}}</div>
+                <div class="hero-side-grid mt-4">
+                  <div class="hero-mini-card">
+                    <div class="hero-mini-label">推荐内容</div>
+                    <div class="hero-mini-value">{{.HomeRecommendTitle}}</div>
+                  </div>
+                  <div class="hero-mini-card">
+                    <div class="hero-mini-label">最新更新</div>
+                    <div class="hero-mini-value">{{.HomeLatestTitle}}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
+      <section class="mb-5">
+        <div class="section-head mb-3">
+          <div>
+            <div class="section-kicker">精选推荐</div>
+            <h2 class="section-title mb-0"><span>{{.HomeRecommendTitle}}</span></h2>
+          </div>
+        </div>
+        <div class="row g-3">
+          {{range .RecommendedPosts}}
+          <div class="col-md-6">
+            <article class="portal-card portal-card-wide h-100">
+              {{if .CoverImage}}
+              <div class="portal-cover-wrap portal-cover-wrap-wide">
+                <img src="{{.CoverImage}}" class="portal-cover portal-cover-wide" alt="{{.Title}}" onerror="this.closest('.portal-cover-wrap').classList.add('is-fallback'); this.remove();">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">热推</div>
+                  <div class="portal-cover-text">经典热服</div>
+                </div>
+              </div>
+              {{else}}
+              <div class="portal-cover-wrap portal-cover-wrap-wide is-fallback">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">热推</div>
+                  <div class="portal-cover-text">经典热服</div>
+                </div>
+              </div>
+              {{end}}
+              <div class="portal-card-body">
+                <div class="portal-meta mb-2">{{.CategoryName}} · {{.GameVersion}} · {{.ServerLine}}</div>
+                <h3 class="portal-card-title"><a class="text-decoration-none" href="/posts/{{.Slug}}">{{.Title}}</a></h3>
+                <p class="portal-card-copy mb-0">{{.Summary}}</p>
+              </div>
+            </article>
+          </div>
+          {{else}}
+          <div class="col-12">
+            <div class="alert alert-secondary mb-0">暂时还没有推荐内容。</div>
+          </div>
+          {{end}}
+        </div>
+      </section>
       <section>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h2 class="h4 mb-0">最新发布</h2>
-          <span class="text-muted small">服务端渲染，利于 SEO</span>
+        <div class="section-head mb-3">
+          <div>
+            <div class="section-kicker">持续更新</div>
+            <h2 class="section-title mb-0"><span>{{.HomeLatestTitle}}</span></h2>
+          </div>
         </div>
         <div class="row g-3">
           {{range .Posts}}
           <div class="col-md-6 col-xl-4">
-            <article class="card h-100 shadow-sm border-0">
+            <article class="portal-card h-100">
               {{if .CoverImage}}
-              <img src="{{.CoverImage}}" class="card-img-top object-fit-cover" alt="{{.Title}}" style="height: 220px;">
+              <div class="portal-cover-wrap">
+                <img src="{{.CoverImage}}" class="portal-cover" alt="{{.Title}}" onerror="this.closest('.portal-cover-wrap').classList.add('is-fallback'); this.remove();">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">新服</div>
+                  <div class="portal-cover-text">火热开战</div>
+                </div>
+              </div>
+              {{else}}
+              <div class="portal-cover-wrap is-fallback">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">新服</div>
+                  <div class="portal-cover-text">火热开战</div>
+                </div>
+              </div>
               {{end}}
-              <div class="card-body">
-                <div class="small text-muted mb-2">{{.PublishedAt}} · {{.CategoryName}} · {{.GameVersion}} · {{.ServerLine}}</div>
-                <h3 class="h5"><a class="text-decoration-none" href="/posts/{{.Slug}}">{{.Title}}</a></h3>
-                <p class="text-secondary">{{.Summary}}</p>
+              <div class="portal-card-body">
+                <div class="portal-meta mb-2">{{.PublishedAt}} · {{.CategoryName}} · {{.GameVersion}} · {{.ServerLine}}</div>
+                <h3 class="portal-card-title"><a class="text-decoration-none" href="/posts/{{.Slug}}">{{.Title}}</a></h3>
+                <p class="portal-card-copy mb-0">{{.Summary}}</p>
               </div>
             </article>
           </div>
@@ -75,8 +142,8 @@
       </section>
     </div>
   </main>
-  <footer class="border-top py-4 bg-light">
-    <div class="container d-flex flex-column flex-md-row justify-content-between small text-muted gap-2">
+  <footer class="site-footer py-4 mt-5">
+    <div class="container site-shell d-flex flex-column flex-md-row justify-content-between small gap-2">
       <div>{{.FooterText}}</div>
       <div>{{.ContactInfo}}</div>
     </div>

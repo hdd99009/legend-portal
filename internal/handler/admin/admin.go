@@ -534,13 +534,19 @@ func (h *Handler) SettingsPage(c echo.Context) error {
 
 func (h *Handler) SettingsSubmit(c echo.Context) error {
 	settings := model.SiteSettings{
-		SiteName:        c.FormValue("site_name"),
-		SiteTitle:       c.FormValue("site_title"),
-		SiteKeywords:    c.FormValue("site_keywords"),
-		SiteDescription: c.FormValue("site_description"),
-		FooterText:      c.FormValue("footer_text"),
-		ContactInfo:     c.FormValue("contact_info"),
+		SiteName:           c.FormValue("site_name"),
+		SiteTitle:          c.FormValue("site_title"),
+		SiteKeywords:       c.FormValue("site_keywords"),
+		SiteDescription:    c.FormValue("site_description"),
+		FooterText:         c.FormValue("footer_text"),
+		ContactInfo:        c.FormValue("contact_info"),
+		HomeTechTitle:      c.FormValue("home_tech_title"),
+		HomeTechText:       c.FormValue("home_tech_text"),
+		HomeLatestTitle:    c.FormValue("home_latest_title"),
+		HomeRecommendTitle: c.FormValue("home_recommend_title"),
 	}
+	settings.HomeLatestCount, _ = strconv.Atoi(c.FormValue("home_latest_count"))
+	settings.HomeRecommendCount, _ = strconv.Atoi(c.FormValue("home_recommend_count"))
 
 	if settings.SiteName == "" || settings.SiteTitle == "" {
 		return c.Render(http.StatusBadRequest, "admin/settings.html", SettingsViewData{

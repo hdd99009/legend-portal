@@ -109,6 +109,13 @@ CREATE TABLE IF NOT EXISTS site_settings (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE site_settings ADD COLUMN home_tech_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE site_settings ADD COLUMN home_tech_text TEXT NOT NULL DEFAULT '';
+ALTER TABLE site_settings ADD COLUMN home_latest_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE site_settings ADD COLUMN home_latest_count INTEGER NOT NULL DEFAULT 12;
+ALTER TABLE site_settings ADD COLUMN home_recommend_title TEXT NOT NULL DEFAULT '';
+ALTER TABLE site_settings ADD COLUMN home_recommend_count INTEGER NOT NULL DEFAULT 6;
+
 CREATE TABLE IF NOT EXISTS friendly_links (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -138,14 +145,24 @@ CREATE TABLE IF NOT EXISTS uploads (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO site_settings (site_name, site_title, site_keywords, site_description, footer_text, contact_info)
+INSERT INTO site_settings (
+  site_name, site_title, site_keywords, site_description, footer_text, contact_info,
+  home_tech_title, home_tech_text, home_latest_title, home_latest_count,
+  home_recommend_title, home_recommend_count
+)
 SELECT
   '传奇私服游戏门户',
   '传奇私服游戏门户 - 游戏发布与玩家社区',
   '传奇私服,传奇发布网,传奇开服表,传奇攻略',
   '轻量、SEO 友好的传奇私服游戏门户站点骨架。',
   'Copyright 2026 传奇私服游戏门户',
-  '站长QQ：123456'
+  '站长QQ：123456',
+  '当前技术栈',
+  'Go + Echo + html/template + SQLite + Bootstrap + Nginx',
+  '最新发布',
+  12,
+  '推荐内容',
+  6
 WHERE NOT EXISTS (SELECT 1 FROM site_settings WHERE id = 1);
 
 INSERT INTO admins (username, password_hash, nickname)

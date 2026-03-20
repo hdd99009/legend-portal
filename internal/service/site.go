@@ -24,6 +24,10 @@ func (s *SiteService) HomePosts(limit int) ([]model.Post, error) {
 	return s.repo.ListPublishedPosts(limit)
 }
 
+func (s *SiteService) RecommendedPosts(limit int) ([]model.Post, error) {
+	return s.repo.ListRecommendedPosts(limit)
+}
+
 func (s *SiteService) PostBySlug(slug string) (model.Post, error) {
 	post, err := s.repo.GetPostBySlug(slug)
 	if errors.Is(err, sql.ErrNoRows) {

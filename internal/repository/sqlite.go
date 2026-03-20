@@ -44,8 +44,19 @@ func (r *SQLiteRepository) Migrate(sqlPath string) error {
 		return err
 	}
 
-	if _, err := r.DB.Exec(string(content)); err != nil {
-		return err
+	statements := strings.Split(string(content), ";")
+	for _, statement := range statements {
+		stmt := strings.TrimSpace(statement)
+		if stmt == "" {
+			continue
+		}
+		if _, err := r.DB.Exec(stmt); err != nil {
+			// Keep startup migrations idempotent for SQLite ALTER TABLE ADD COLUMN.
+			if strings.Contains(err.Error(), "duplicate column name") {
+				continue
+			}
+			return err
+		}
 	}
 
 	return nil
@@ -54,7 +65,9 @@ func (r *SQLiteRepository) Migrate(sqlPath string) error {
 func (r *SQLiteRepository) GetSiteSettings() (model.SiteSettings, error) {
 	var settings model.SiteSettings
 	row := r.DB.QueryRow(`
-		SELECT site_name, site_title, site_keywords, site_description, footer_text, contact_info
+		SELECT site_name, site_title, site_keywords, site_description, footer_text, contact_info,
+		       home_tech_title, home_tech_text, home_latest_title, home_latest_count,
+		       home_recommend_title, home_recommend_count
 		FROM site_settings
 		ORDER BY id ASC
 		LIMIT 1
@@ -67,6 +80,12 @@ func (r *SQLiteRepository) GetSiteSettings() (model.SiteSettings, error) {
 		&settings.SiteDescription,
 		&settings.FooterText,
 		&settings.ContactInfo,
+		&settings.HomeTechTitle,
+		&settings.HomeTechText,
+		&settings.HomeLatestTitle,
+		&settings.HomeLatestCount,
+		&settings.HomeRecommendTitle,
+		&settings.HomeRecommendCount,
 	)
 
 	return settings, err
@@ -76,11 +95,13 @@ func (r *SQLiteRepository) UpdateSiteSettings(settings model.SiteSettings) error
 	_, err := r.DB.Exec(`
 		UPDATE site_settings
 		SET site_name = ?, site_title = ?, site_keywords = ?, site_description = ?,
-		    footer_text = ?, contact_info = ?, updated_at = CURRENT_TIMESTAMP
+		    footer_text = ?, contact_info = ?, home_tech_title = ?, home_tech_text = ?,
+		    home_latest_title = ?, home_latest_count = ?, home_recommend_title = ?, home_recommend_count = ?,
+		    updated_at = CURRENT_TIMESTAMP
 		WHERE id = (
 			SELECT id FROM site_settings ORDER BY id ASC LIMIT 1
 		)
-	`, settings.SiteName, settings.SiteTitle, settings.SiteKeywords, settings.SiteDescription, settings.FooterText, settings.ContactInfo)
+	`, settings.SiteName, settings.SiteTitle, settings.SiteKeywords, settings.SiteDescription, settings.FooterText, settings.ContactInfo, settings.HomeTechTitle, settings.HomeTechText, settings.HomeLatestTitle, settings.HomeLatestCount, settings.HomeRecommendTitle, settings.HomeRecommendCount)
 	return err
 }
 
@@ -209,6 +230,62 @@ func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
 		FROM posts p
 		LEFT JOIN post_categories c ON c.id = p.category_id
 		WHERE p.status = 'published'
+		ORDER BY p.is_top DESC, p.published_at DESC, p.id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []model.Post
+	for rows.Next() {
+		var post model.Post
+		if err := rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.Subtitle,
+			&post.Slug,
+			&post.CategoryID,
+			&post.CategoryName,
+			&post.CoverImage,
+			&post.Summary,
+			&post.Content,
+			&post.ContentMarkdown,
+			&post.Type,
+			&post.Status,
+			&post.IsTop,
+			&post.IsRecommend,
+			&post.GameVersion,
+			&post.ServerLine,
+			&post.GameGenre,
+			&post.Region,
+			&post.OfficialURL,
+			&post.DownloadURL,
+			&post.QQGroup,
+			&post.SEOTitle,
+			&post.SEOKeywords,
+			&post.SEODescription,
+			&post.PublishedAt,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, rows.Err()
+}
+
+func (r *SQLiteRepository) ListRecommendedPosts(limit int) ([]model.Post, error) {
+	rows, err := r.DB.Query(`
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		WHERE p.status = 'published' AND p.is_recommend = 1
 		ORDER BY p.is_top DESC, p.published_at DESC, p.id DESC
 		LIMIT ?
 	`, limit)

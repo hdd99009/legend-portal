@@ -1,12 +1,18 @@
 package model
 
 type SiteSettings struct {
-	SiteName        string
-	SiteTitle       string
-	SiteKeywords    string
-	SiteDescription string
-	FooterText      string
-	ContactInfo     string
+	SiteName           string
+	SiteTitle          string
+	SiteKeywords       string
+	SiteDescription    string
+	FooterText         string
+	ContactInfo        string
+	HomeTechTitle      string
+	HomeTechText       string
+	HomeLatestTitle    string
+	HomeLatestCount    int
+	HomeRecommendTitle string
+	HomeRecommendCount int
 }
 
 type Admin struct {
