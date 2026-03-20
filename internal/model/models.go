@@ -46,10 +46,23 @@ type Post struct {
 }
 
 type GuestbookMessage struct {
-	ID        int64
-	Nickname  string
-	Contact   string
-	Content   string
-	Status    string
-	CreatedAt string
+	ID           int64
+	Nickname     string
+	Contact      string
+	Content      string
+	IP           string
+	Status       string
+	ReplyContent string
+	CreatedAt    string
+	UpdatedAt    string
+}
+
+type Upload struct {
+	ID         int64
+	OriginName string
+	SavedName  string
+	Path       string
+	MimeType   string
+	Size       int64
+	CreatedAt  string
 }

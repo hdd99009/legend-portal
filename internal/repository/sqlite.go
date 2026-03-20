@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,6 +72,18 @@ func (r *SQLiteRepository) GetSiteSettings() (model.SiteSettings, error) {
 	return settings, err
 }
 
+func (r *SQLiteRepository) UpdateSiteSettings(settings model.SiteSettings) error {
+	_, err := r.DB.Exec(`
+		UPDATE site_settings
+		SET site_name = ?, site_title = ?, site_keywords = ?, site_description = ?,
+		    footer_text = ?, contact_info = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = (
+			SELECT id FROM site_settings ORDER BY id ASC LIMIT 1
+		)
+	`, settings.SiteName, settings.SiteTitle, settings.SiteKeywords, settings.SiteDescription, settings.FooterText, settings.ContactInfo)
+	return err
+}
+
 func (r *SQLiteRepository) FindAdminByUsername(username string) (model.Admin, error) {
 	var admin model.Admin
 	row := r.DB.QueryRow(`
@@ -90,6 +103,28 @@ func (r *SQLiteRepository) UpdateAdminLogin(adminID int64, ip string) error {
 		SET last_login_at = CURRENT_TIMESTAMP, last_login_ip = ?
 		WHERE id = ?
 	`, ip, adminID)
+	return err
+}
+
+func (r *SQLiteRepository) FindAdminByID(id int64) (model.Admin, error) {
+	var admin model.Admin
+	row := r.DB.QueryRow(`
+		SELECT id, username, password_hash, nickname, status
+		FROM admins
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+
+	err := row.Scan(&admin.ID, &admin.Username, &admin.PasswordHash, &admin.Nickname, &admin.Status)
+	return admin, err
+}
+
+func (r *SQLiteRepository) UpdateAdminPassword(adminID int64, passwordHash string) error {
+	_, err := r.DB.Exec(`
+		UPDATE admins
+		SET password_hash = ?
+		WHERE id = ?
+	`, passwordHash, adminID)
 	return err
 }
 
@@ -316,7 +351,7 @@ func (r *SQLiteRepository) UpdatePost(post model.Post) error {
 
 func (r *SQLiteRepository) ListApprovedMessages(limit int) ([]model.GuestbookMessage, error) {
 	rows, err := r.DB.Query(`
-		SELECT id, nickname, contact, content, status, created_at
+		SELECT id, nickname, contact, content, ip, status, reply_content, created_at, updated_at
 		FROM guestbook_messages
 		WHERE status = 'approved'
 		ORDER BY id DESC
@@ -335,8 +370,11 @@ func (r *SQLiteRepository) ListApprovedMessages(limit int) ([]model.GuestbookMes
 			&message.Nickname,
 			&message.Contact,
 			&message.Content,
+			&message.IP,
 			&message.Status,
+			&message.ReplyContent,
 			&message.CreatedAt,
+			&message.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -363,4 +401,70 @@ func (r *SQLiteRepository) CountPendingMessages() (int, error) {
 	var total int
 	err := r.DB.QueryRow(`SELECT COUNT(1) FROM guestbook_messages WHERE status = 'pending'`).Scan(&total)
 	return total, err
+}
+
+func (r *SQLiteRepository) ListAdminMessages(limit int) ([]model.GuestbookMessage, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, nickname, contact, content, ip, status, reply_content, created_at, updated_at
+		FROM guestbook_messages
+		ORDER BY id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []model.GuestbookMessage
+	for rows.Next() {
+		var message model.GuestbookMessage
+		if err := rows.Scan(
+			&message.ID,
+			&message.Nickname,
+			&message.Contact,
+			&message.Content,
+			&message.IP,
+			&message.Status,
+			&message.ReplyContent,
+			&message.CreatedAt,
+			&message.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+
+	return messages, rows.Err()
+}
+
+func (r *SQLiteRepository) UpdateGuestbookStatus(id int64, status, replyContent string) error {
+	_, err := r.DB.Exec(`
+		UPDATE guestbook_messages
+		SET status = ?, reply_content = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, status, strings.TrimSpace(replyContent), id)
+	return err
+}
+
+func (r *SQLiteRepository) CreateUpload(upload model.Upload) error {
+	_, err := r.DB.Exec(`
+		INSERT INTO uploads (origin_name, saved_name, path, mime_type, size)
+		VALUES (?, ?, ?, ?, ?)
+	`, upload.OriginName, upload.SavedName, upload.Path, upload.MimeType, upload.Size)
+	return err
+}
+
+func SaveUploadedFile(src io.Reader, targetPath string) error {
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		return err
+	}
+
+	dst, err := os.Create(targetPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	return err
 }

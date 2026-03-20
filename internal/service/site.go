@@ -44,4 +44,8 @@ func (s *SiteService) PendingMessageCount() (int, error) {
 	return s.repo.CountPendingMessages()
 }
 
+func (s *SiteService) UpdateSiteSettings(settings model.SiteSettings) error {
+	return s.repo.UpdateSiteSettings(settings)
+}
+
 var ErrNotFound = errors.New("resource not found")

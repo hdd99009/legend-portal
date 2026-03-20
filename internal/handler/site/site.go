@@ -14,9 +14,12 @@ type Handler struct {
 }
 
 type ViewData struct {
+	SiteName        string
 	SiteTitle       string
 	SiteKeywords    string
 	SiteDescription string
+	FooterText      string
+	ContactInfo     string
 	PageTitle       string
 	CurrentPath     string
 	Posts           interface{}
@@ -50,9 +53,12 @@ func (h *Handler) Home(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "site/index.html", ViewData{
+		SiteName:        settings.SiteName,
 		SiteTitle:       settings.SiteTitle,
 		SiteKeywords:    settings.SiteKeywords,
 		SiteDescription: settings.SiteDescription,
+		FooterText:      settings.FooterText,
+		ContactInfo:     settings.ContactInfo,
 		PageTitle:       settings.SiteTitle,
 		CurrentPath:     c.Request().URL.Path,
 		Posts:           posts,
@@ -74,14 +80,25 @@ func (h *Handler) PostDetail(c echo.Context) error {
 	}
 
 	title := post.Title
+	keywords := settings.SiteKeywords
+	description := settings.SiteDescription
 	if post.SEOTitle != "" {
 		title = post.SEOTitle
 	}
+	if post.SEOKeywords != "" {
+		keywords = post.SEOKeywords
+	}
+	if post.SEODescription != "" {
+		description = post.SEODescription
+	}
 
 	return c.Render(http.StatusOK, "site/post_detail.html", ViewData{
+		SiteName:        settings.SiteName,
 		SiteTitle:       settings.SiteTitle,
-		SiteKeywords:    settings.SiteKeywords,
-		SiteDescription: settings.SiteDescription,
+		SiteKeywords:    keywords,
+		SiteDescription: description,
+		FooterText:      settings.FooterText,
+		ContactInfo:     settings.ContactInfo,
 		PageTitle:       title,
 		CurrentPath:     c.Request().URL.Path,
 		Post:            post,
@@ -100,9 +117,12 @@ func (h *Handler) Guestbook(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "site/guestbook.html", ViewData{
+		SiteName:        settings.SiteName,
 		SiteTitle:       settings.SiteTitle,
 		SiteKeywords:    settings.SiteKeywords,
 		SiteDescription: settings.SiteDescription,
+		FooterText:      settings.FooterText,
+		ContactInfo:     settings.ContactInfo,
 		PageTitle:       "玩家留言板",
 		CurrentPath:     c.Request().URL.Path,
 		Messages:        messages,

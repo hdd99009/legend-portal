@@ -13,7 +13,7 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary-subtle">
     <div class="container">
-      <a class="navbar-brand fw-bold" href="/">传奇私服门户</a>
+      <a class="navbar-brand fw-bold" href="/">{{.SiteTitle}}</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -21,7 +21,6 @@
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item"><a class="nav-link active" href="/">首页</a></li>
           <li class="nav-item"><a class="nav-link" href="/guestbook">玩家留言</a></li>
-          <li class="nav-item"><a class="nav-link" href="/admin">后台入口</a></li>
         </ul>
       </div>
     </div>
@@ -33,11 +32,10 @@
           <div class="row align-items-center g-4">
             <div class="col-lg-8">
               <span class="badge text-bg-warning mb-3">轻量首发方案</span>
-              <h1 class="display-6 fw-bold mb-3">传奇私服发布 + 玩家留言 + SEO 友好的 Go 门户</h1>
-              <p class="lead mb-4">这套骨架围绕 1 核 1G 服务器设计，适合先快速上线，再逐步补后台功能。</p>
+              <h1 class="display-6 fw-bold mb-3">{{.SiteTitle}}</h1>
+              <p class="lead mb-4">{{.SiteDescription}}</p>
               <div class="d-flex gap-2 flex-wrap">
                 <a class="btn btn-danger" href="/guestbook">进入玩家留言</a>
-                <a class="btn btn-outline-light" href="/admin">查看后台入口</a>
               </div>
             </div>
             <div class="col-lg-4">
@@ -76,8 +74,8 @@
   </main>
   <footer class="border-top py-4 bg-light">
     <div class="container d-flex flex-column flex-md-row justify-content-between small text-muted gap-2">
-      <div>传奇私服游戏门户骨架</div>
-      <div>轻量部署，适合 1 核 1G 起步</div>
+      <div>{{.FooterText}}</div>
+      <div>{{.ContactInfo}}</div>
     </div>
   </footer>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>

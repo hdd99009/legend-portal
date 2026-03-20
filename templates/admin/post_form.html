@@ -14,6 +14,9 @@
       <a class="navbar-brand fw-bold" href="/admin">后台管理</a>
       <div class="navbar-nav ms-auto">
         <a class="nav-link" href="/admin/posts">文章管理</a>
+        <a class="nav-link" href="/admin/messages">留言审核</a>
+        <a class="nav-link" href="/admin/settings">站点设置</a>
+        <a class="nav-link" href="/admin/password">修改密码</a>
         <a class="nav-link" href="/admin/logout">退出</a>
       </div>
     </div>
@@ -29,6 +32,36 @@
     <form method="post" class="vstack gap-4">
       <div class="card border-0 shadow-sm">
         <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h6 mb-0">内容编辑</h2>
+            <div class="small text-secondary">支持先上传图片，再把返回的地址粘贴进正文。</div>
+          </div>
+          <div class="border rounded-3 p-3 mb-4 bg-light-subtle">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-6">
+                <label class="form-label">上传文章图片</label>
+                <input class="form-control" type="file" id="articleImage" accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
+              </div>
+              <div class="col-md-3">
+                <button class="btn btn-outline-dark w-100" type="button" id="uploadImageBtn">上传图片</button>
+              </div>
+              <div class="col-md-3">
+                <button class="btn btn-outline-secondary w-100" type="button" id="copyImageUrlBtn">复制图片地址</button>
+              </div>
+            </div>
+            <div class="small text-secondary mt-2">图片保存在本地服务器 `storage/uploads`，已加基础 Referer 防盗链。</div>
+            <div class="mt-3 d-none" id="uploadImageResultWrap">
+              <label class="form-label">上传结果</label>
+              <input class="form-control" id="uploadImageResult" readonly>
+            </div>
+            <div class="mt-3 d-none" id="uploadImagePreviewWrap">
+              <div class="small text-secondary mb-2">图片预览</div>
+              <img id="uploadImagePreview" class="img-fluid rounded border" alt="上传预览">
+            </div>
+            <div class="mt-3 d-none" id="uploadImageErrorWrap">
+              <div class="alert alert-danger mb-0" id="uploadImageError"></div>
+            </div>
+          </div>
           <div class="row g-3">
             <div class="col-md-8">
               <label class="form-label">标题</label>
@@ -145,6 +178,64 @@
       </div>
     </form>
   </div>
+  <script>
+    const uploadBtn = document.getElementById('uploadImageBtn');
+    const copyBtn = document.getElementById('copyImageUrlBtn');
+    const fileInput = document.getElementById('articleImage');
+    const resultWrap = document.getElementById('uploadImageResultWrap');
+    const resultInput = document.getElementById('uploadImageResult');
+    const previewWrap = document.getElementById('uploadImagePreviewWrap');
+    const previewImg = document.getElementById('uploadImagePreview');
+    const errorWrap = document.getElementById('uploadImageErrorWrap');
+    const errorBox = document.getElementById('uploadImageError');
+
+    async function uploadImage() {
+      if (!fileInput.files || fileInput.files.length === 0) {
+        errorWrap.classList.remove('d-none');
+        errorBox.textContent = '请先选择图片文件';
+        return;
+      }
+
+      errorWrap.classList.add('d-none');
+      const formData = new FormData();
+      formData.append('image', fileInput.files[0]);
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = '上传中...';
+
+      try {
+        const response = await fetch('/admin/upload/image', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || '上传失败');
+        }
+
+        resultWrap.classList.remove('d-none');
+        resultInput.value = data.url;
+        previewWrap.classList.remove('d-none');
+        previewImg.src = data.url;
+      } catch (error) {
+        errorWrap.classList.remove('d-none');
+        errorBox.textContent = error.message || '上传失败';
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '上传图片';
+      }
+    }
+
+    uploadBtn?.addEventListener('click', uploadImage);
+    copyBtn?.addEventListener('click', async () => {
+      if (!resultInput.value) {
+        errorWrap.classList.remove('d-none');
+        errorBox.textContent = '还没有可复制的图片地址';
+        return;
+      }
+      await navigator.clipboard.writeText(resultInput.value);
+      errorWrap.classList.add('d-none');
+    });
+  </script>
 </body>
 </html>
 {{end}}

@@ -149,7 +149,7 @@ SELECT
 WHERE NOT EXISTS (SELECT 1 FROM site_settings WHERE id = 1);
 
 INSERT INTO admins (username, password_hash, nickname)
-SELECT 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '站点管理员'
+SELECT 'admin', '$2a$10$n6eH7RaTl1qhhYWkhbP83uSgw5VZgBrbsuR0L9tnZveig3MfXUzI6', '站点管理员'
 WHERE NOT EXISTS (SELECT 1 FROM admins WHERE username = 'admin');
 
 INSERT INTO post_categories (name, slug, sort, seo_title, seo_keywords, seo_description)

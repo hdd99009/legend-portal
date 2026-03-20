@@ -39,6 +39,24 @@ type PostFormViewData struct {
 	IsEdit    bool
 }
 
+type PasswordViewData struct {
+	PageTitle string
+	Error     string
+	Success   string
+}
+
+type MessageListViewData struct {
+	PageTitle string
+	Messages  []model.GuestbookMessage
+}
+
+type SettingsViewData struct {
+	PageTitle string
+	Settings  model.SiteSettings
+	Error     string
+	Success   string
+}
+
 func New(siteService *service.SiteService, adminService *service.AdminService, secret string) *Handler {
 	return &Handler{
 		siteService:  siteService,
@@ -61,6 +79,14 @@ func (h *Handler) Register(g *echo.Group) {
 	protected.POST("/posts/new", h.PostCreate)
 	protected.GET("/posts/:id/edit", h.PostEditPage)
 	protected.POST("/posts/:id/edit", h.PostUpdate)
+	protected.GET("/messages", h.MessageList)
+	protected.POST("/messages/:id/approve", h.MessageApprove)
+	protected.POST("/messages/:id/hide", h.MessageHide)
+	protected.POST("/upload/image", h.UploadImage)
+	protected.GET("/settings", h.SettingsPage)
+	protected.POST("/settings", h.SettingsSubmit)
+	protected.GET("/password", h.PasswordPage)
+	protected.POST("/password", h.PasswordSubmit)
 }
 
 func (h *Handler) LoginPage(c echo.Context) error {
@@ -196,6 +222,152 @@ func (h *Handler) PostUpdate(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusFound, "/admin/posts")
+}
+
+func (h *Handler) PasswordPage(c echo.Context) error {
+	return c.Render(http.StatusOK, "admin/password.html", PasswordViewData{
+		PageTitle: "修改密码",
+		Success:   c.QueryParam("success"),
+	})
+}
+
+func (h *Handler) PasswordSubmit(c echo.Context) error {
+	adminIDValue := c.Get("admin_id")
+	adminID, ok := adminIDValue.(int64)
+	if !ok || adminID <= 0 {
+		return c.Redirect(http.StatusFound, "/admin/login")
+	}
+
+	err := h.adminService.ChangePassword(
+		adminID,
+		c.FormValue("old_password"),
+		c.FormValue("new_password"),
+		c.FormValue("confirm_password"),
+	)
+	if err != nil {
+		message := "修改失败，请稍后重试"
+		switch err {
+		case service.ErrPasswordRequired:
+			message = "请完整填写密码字段"
+		case service.ErrPasswordTooShort:
+			message = "新密码至少 6 位"
+		case service.ErrPasswordNotMatch:
+			message = "两次输入的新密码不一致"
+		case service.ErrOldPasswordWrong:
+			message = "旧密码不正确"
+		}
+		return c.Render(http.StatusBadRequest, "admin/password.html", PasswordViewData{
+			PageTitle: "修改密码",
+			Error:     message,
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/password?success=密码修改成功")
+}
+
+func (h *Handler) MessageList(c echo.Context) error {
+	messages, err := h.adminService.ListMessages(200)
+	if err != nil {
+		return err
+	}
+	return c.Render(http.StatusOK, "admin/messages_list.html", MessageListViewData{
+		PageTitle: "留言审核",
+		Messages:  messages,
+	})
+}
+
+func (h *Handler) MessageApprove(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+	if err := h.adminService.ApproveMessage(id, c.FormValue("reply_content")); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusFound, "/admin/messages")
+}
+
+func (h *Handler) MessageHide(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+	if err := h.adminService.HideMessage(id, c.FormValue("reply_content")); err != nil {
+		return err
+	}
+	return c.Redirect(http.StatusFound, "/admin/messages")
+}
+
+func (h *Handler) UploadImage(c echo.Context) error {
+	fileHeader, err := c.FormFile("image")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "请选择图片文件",
+		})
+	}
+
+	upload, err := h.adminService.UploadImage(fileHeader)
+	if err != nil {
+		message := "上传失败"
+		switch err {
+		case service.ErrUploadRequired:
+			message = "请选择图片文件"
+		case service.ErrUploadTooLarge:
+			message = "图片大小不能超过 5MB"
+		case service.ErrUploadType:
+			message = "仅支持 jpg/png/gif/webp"
+		}
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": message,
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"url":  "/uploads/" + upload.Path,
+		"path": upload.Path,
+	})
+}
+
+func (h *Handler) SettingsPage(c echo.Context) error {
+	settings, err := h.siteService.SiteSettings()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/settings.html", SettingsViewData{
+		PageTitle: "站点设置",
+		Settings:  settings,
+		Success:   c.QueryParam("success"),
+	})
+}
+
+func (h *Handler) SettingsSubmit(c echo.Context) error {
+	settings := model.SiteSettings{
+		SiteName:        c.FormValue("site_name"),
+		SiteTitle:       c.FormValue("site_title"),
+		SiteKeywords:    c.FormValue("site_keywords"),
+		SiteDescription: c.FormValue("site_description"),
+		FooterText:      c.FormValue("footer_text"),
+		ContactInfo:     c.FormValue("contact_info"),
+	}
+
+	if settings.SiteName == "" || settings.SiteTitle == "" {
+		return c.Render(http.StatusBadRequest, "admin/settings.html", SettingsViewData{
+			PageTitle: "站点设置",
+			Settings:  settings,
+			Error:     "站点名称和首页标题不能为空",
+		})
+	}
+
+	if err := h.siteService.UpdateSiteSettings(settings); err != nil {
+		return c.Render(http.StatusBadRequest, "admin/settings.html", SettingsViewData{
+			PageTitle: "站点设置",
+			Settings:  settings,
+			Error:     "保存失败，请稍后重试",
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/settings?success=站点设置已保存")
 }
 
 func bindPostForm(c echo.Context) model.Post {
