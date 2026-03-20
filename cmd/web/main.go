@@ -7,6 +7,7 @@ import (
 	"legend-portal/internal/config"
 	"legend-portal/internal/repository"
 	"legend-portal/internal/service"
+	appstorage "legend-portal/internal/storage"
 )
 
 func main() {
@@ -30,9 +31,17 @@ func main() {
 		log.Fatalf("parse templates failed: %v", err)
 	}
 
+	var storage appstorage.FileStorage
+	switch cfg.Storage.Driver {
+	case "", "local":
+		storage = appstorage.NewLocalStorage(cfg.Storage.LocalPath, cfg.Storage.PublicPrefix)
+	default:
+		log.Fatalf("unsupported storage driver: %s", cfg.Storage.Driver)
+	}
+
 	siteService := service.NewSiteService(repo)
-	adminService := service.NewAdminService(repo)
-	server := app.NewServer(renderer, siteService, adminService, cfg.App.SessionSecret)
+	adminService := service.NewAdminService(repo, storage)
+	server := app.NewServer(renderer, siteService, adminService, cfg.App.SessionSecret, storage)
 
 	log.Printf("server started at %s", cfg.App.Addr)
 	if err := server.Start(cfg.App.Addr); err != nil {

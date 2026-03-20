@@ -23,6 +23,8 @@ type Post struct {
 	Subtitle        string
 	Slug            string
 	CategoryID      int64
+	CategoryName    string
+	CoverImage      string
 	Summary         string
 	Content         string
 	ContentMarkdown string
@@ -62,7 +64,20 @@ type Upload struct {
 	OriginName string
 	SavedName  string
 	Path       string
+	URL        string
 	MimeType   string
 	Size       int64
 	CreatedAt  string
+}
+
+type Category struct {
+	ID             int64
+	Name           string
+	Slug           string
+	ParentID       int64
+	Sort           int
+	SEOTitle       string
+	SEOKeywords    string
+	SEODescription string
+	CreatedAt      string
 }

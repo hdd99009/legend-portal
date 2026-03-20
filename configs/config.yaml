@@ -12,3 +12,8 @@ site:
 
 sqlite:
   path: "storage/data/site.db"
+
+storage:
+  driver: "local"
+  local_path: "storage/uploads"
+  public_prefix: "/uploads"

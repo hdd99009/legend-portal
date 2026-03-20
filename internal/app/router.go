@@ -13,9 +13,10 @@ import (
 	adminhandler "legend-portal/internal/handler/admin"
 	sitehandler "legend-portal/internal/handler/site"
 	"legend-portal/internal/service"
+	appstorage "legend-portal/internal/storage"
 )
 
-func NewServer(renderer *TemplateRenderer, siteService *service.SiteService, adminService *service.AdminService, adminSecret string) *echo.Echo {
+func NewServer(renderer *TemplateRenderer, siteService *service.SiteService, adminService *service.AdminService, adminSecret string, storage appstorage.FileStorage) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Renderer = renderer
@@ -25,7 +26,7 @@ func NewServer(renderer *TemplateRenderer, siteService *service.SiteService, adm
 	e.Use(middleware.Gzip())
 
 	e.Static("/assets", "assets")
-	e.GET("/uploads/*", serveProtectedUpload)
+	e.GET("/uploads/*", serveProtectedUpload(storage))
 	e.GET("/healthz", func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
@@ -39,29 +40,34 @@ func NewServer(renderer *TemplateRenderer, siteService *service.SiteService, adm
 	return e
 }
 
-func serveProtectedUpload(c echo.Context) error {
-	relative := strings.TrimPrefix(c.Param("*"), "/")
-	clean := filepath.Clean(relative)
-	if clean == "." || strings.Contains(clean, "..") {
-		return c.String(http.StatusBadRequest, "invalid path")
-	}
+func serveProtectedUpload(storage appstorage.FileStorage) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		relative := strings.TrimPrefix(c.Param("*"), "/")
+		clean := filepath.Clean(relative)
+		if clean == "." || strings.Contains(clean, "..") {
+			return c.String(http.StatusBadRequest, "invalid path")
+		}
 
-	referer := c.Request().Header.Get("Referer")
-	if referer != "" {
-		if refURL, err := url.Parse(referer); err == nil {
-			requestHost := c.Request().Host
-			if host := refURL.Host; host != "" && !sameHost(host, requestHost) {
-				return c.String(http.StatusForbidden, "forbidden")
+		referer := c.Request().Header.Get("Referer")
+		if referer != "" {
+			if refURL, err := url.Parse(referer); err == nil {
+				requestHost := c.Request().Host
+				if host := refURL.Host; host != "" && !sameHost(host, requestHost) {
+					return c.String(http.StatusForbidden, "forbidden")
+				}
 			}
 		}
-	}
 
-	target := filepath.Join("storage", "uploads", clean)
-	if _, err := os.Stat(target); err != nil {
-		return c.String(http.StatusNotFound, "not found")
-	}
+		target, ok := storage.LocalPath(clean)
+		if !ok {
+			return c.String(http.StatusNotFound, "not found")
+		}
+		if _, err := os.Stat(target); err != nil {
+			return c.String(http.StatusNotFound, "not found")
+		}
 
-	return c.File(target)
+		return c.File(target)
+	}
 }
 
 func sameHost(a, b string) bool {

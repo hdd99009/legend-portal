@@ -25,9 +25,14 @@
     <div class="container">
       <article class="card border-0 shadow-sm">
         <div class="card-body p-4 p-md-5">
-          <div class="text-muted small mb-2">{{$post.PublishedAt}} · {{$post.GameVersion}} · {{$post.ServerLine}} · {{$post.Region}}</div>
+          <div class="text-muted small mb-2">{{$post.PublishedAt}} · {{$post.CategoryName}} · {{$post.GameVersion}} · {{$post.ServerLine}} · {{$post.Region}}</div>
           <h1 class="mb-3">{{$post.Title}}</h1>
           {{if $post.Subtitle}}<p class="lead text-secondary">{{$post.Subtitle}}</p>{{end}}
+          {{if $post.CoverImage}}
+          <div class="mb-4">
+            <img src="{{$post.CoverImage}}" class="img-fluid rounded border" alt="{{$post.Title}}">
+          </div>
+          {{end}}
           <div class="mb-4">
             <span class="badge text-bg-dark me-2">{{$post.GameGenre}}</span>
             <span class="badge text-bg-secondary me-2">{{$post.Type}}</span>

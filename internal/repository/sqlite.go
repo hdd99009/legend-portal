@@ -128,14 +128,88 @@ func (r *SQLiteRepository) UpdateAdminPassword(adminID int64, passwordHash strin
 	return err
 }
 
+func (r *SQLiteRepository) ListCategories() ([]model.Category, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, name, slug, parent_id, sort, seo_title, seo_keywords, seo_description, created_at
+		FROM post_categories
+		ORDER BY sort DESC, id DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []model.Category
+	for rows.Next() {
+		var category model.Category
+		if err := rows.Scan(
+			&category.ID,
+			&category.Name,
+			&category.Slug,
+			&category.ParentID,
+			&category.Sort,
+			&category.SEOTitle,
+			&category.SEOKeywords,
+			&category.SEODescription,
+			&category.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+
+	return categories, rows.Err()
+}
+
+func (r *SQLiteRepository) GetCategoryByID(id int64) (model.Category, error) {
+	var category model.Category
+	row := r.DB.QueryRow(`
+		SELECT id, name, slug, parent_id, sort, seo_title, seo_keywords, seo_description, created_at
+		FROM post_categories
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+
+	err := row.Scan(
+		&category.ID,
+		&category.Name,
+		&category.Slug,
+		&category.ParentID,
+		&category.Sort,
+		&category.SEOTitle,
+		&category.SEOKeywords,
+		&category.SEODescription,
+		&category.CreatedAt,
+	)
+	return category, err
+}
+
+func (r *SQLiteRepository) CreateCategory(category model.Category) error {
+	_, err := r.DB.Exec(`
+		INSERT INTO post_categories (name, slug, parent_id, sort, seo_title, seo_keywords, seo_description)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, category.Name, category.Slug, category.ParentID, category.Sort, category.SEOTitle, category.SEOKeywords, category.SEODescription)
+	return err
+}
+
+func (r *SQLiteRepository) UpdateCategory(category model.Category) error {
+	_, err := r.DB.Exec(`
+		UPDATE post_categories
+		SET name = ?, slug = ?, parent_id = ?, sort = ?, seo_title = ?, seo_keywords = ?, seo_description = ?
+		WHERE id = ?
+	`, category.Name, category.Slug, category.ParentID, category.Sort, category.SEOTitle, category.SEOKeywords, category.SEODescription, category.ID)
+	return err
+}
+
 func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
 	rows, err := r.DB.Query(`
-		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
-		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
-		       seo_description, published_at, created_at, updated_at
-		FROM posts
-		WHERE status = 'published'
-		ORDER BY is_top DESC, published_at DESC, id DESC
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		WHERE p.status = 'published'
+		ORDER BY p.is_top DESC, p.published_at DESC, p.id DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -152,6 +226,8 @@ func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
 			&post.Subtitle,
 			&post.Slug,
 			&post.CategoryID,
+			&post.CategoryName,
+			&post.CoverImage,
 			&post.Summary,
 			&post.Content,
 			&post.ContentMarkdown,
@@ -184,11 +260,12 @@ func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
 func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
 	var post model.Post
 	row := r.DB.QueryRow(`
-		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
-		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
-		       seo_description, published_at, created_at, updated_at
-		FROM posts
-		WHERE slug = ? AND status = 'published'
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		WHERE p.slug = ? AND p.status = 'published'
 		LIMIT 1
 	`, slug)
 
@@ -198,6 +275,8 @@ func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
 		&post.Subtitle,
 		&post.Slug,
 		&post.CategoryID,
+		&post.CategoryName,
+		&post.CoverImage,
 		&post.Summary,
 		&post.Content,
 		&post.ContentMarkdown,
@@ -225,11 +304,12 @@ func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
 
 func (r *SQLiteRepository) ListAdminPosts(limit int) ([]model.Post, error) {
 	rows, err := r.DB.Query(`
-		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
-		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
-		       seo_description, published_at, created_at, updated_at
-		FROM posts
-		ORDER BY updated_at DESC, id DESC
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		ORDER BY p.updated_at DESC, p.id DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -246,6 +326,8 @@ func (r *SQLiteRepository) ListAdminPosts(limit int) ([]model.Post, error) {
 			&post.Subtitle,
 			&post.Slug,
 			&post.CategoryID,
+			&post.CategoryName,
+			&post.CoverImage,
 			&post.Summary,
 			&post.Content,
 			&post.ContentMarkdown,
@@ -278,11 +360,12 @@ func (r *SQLiteRepository) ListAdminPosts(limit int) ([]model.Post, error) {
 func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
 	var post model.Post
 	row := r.DB.QueryRow(`
-		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
-		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
-		       seo_description, published_at, created_at, updated_at
-		FROM posts
-		WHERE id = ?
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		WHERE p.id = ?
 		LIMIT 1
 	`, id)
 
@@ -292,6 +375,8 @@ func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
 		&post.Subtitle,
 		&post.Slug,
 		&post.CategoryID,
+		&post.CategoryName,
+		&post.CoverImage,
 		&post.Summary,
 		&post.Content,
 		&post.ContentMarkdown,
@@ -319,12 +404,12 @@ func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
 func (r *SQLiteRepository) CreatePost(post model.Post) error {
 	_, err := r.DB.Exec(`
 		INSERT INTO posts (
-			title, subtitle, slug, summary, content, content_markdown, type, category_id, status,
+			title, subtitle, slug, cover_image, summary, content, content_markdown, type, category_id, status,
 			is_top, is_recommend, game_version, server_line, game_genre, region, official_url,
 			download_url, qq_group, seo_title, seo_keywords, seo_description, published_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`,
-		post.Title, post.Subtitle, post.Slug, post.Summary, post.Content, post.ContentMarkdown,
+		post.Title, post.Subtitle, post.Slug, post.CoverImage, post.Summary, post.Content, post.ContentMarkdown,
 		post.Type, post.CategoryID, post.Status, post.IsTop, post.IsRecommend, post.GameVersion,
 		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
 		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription,
@@ -335,13 +420,13 @@ func (r *SQLiteRepository) CreatePost(post model.Post) error {
 func (r *SQLiteRepository) UpdatePost(post model.Post) error {
 	_, err := r.DB.Exec(`
 		UPDATE posts SET
-			title = ?, subtitle = ?, slug = ?, summary = ?, content = ?, content_markdown = ?,
+			title = ?, subtitle = ?, slug = ?, cover_image = ?, summary = ?, content = ?, content_markdown = ?,
 			type = ?, category_id = ?, status = ?, is_top = ?, is_recommend = ?, game_version = ?,
 			server_line = ?, game_genre = ?, region = ?, official_url = ?, download_url = ?,
 			qq_group = ?, seo_title = ?, seo_keywords = ?, seo_description = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`,
-		post.Title, post.Subtitle, post.Slug, post.Summary, post.Content, post.ContentMarkdown,
+		post.Title, post.Subtitle, post.Slug, post.CoverImage, post.Summary, post.Content, post.ContentMarkdown,
 		post.Type, post.CategoryID, post.Status, post.IsTop, post.IsRecommend, post.GameVersion,
 		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
 		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription, post.ID,
@@ -452,6 +537,74 @@ func (r *SQLiteRepository) CreateUpload(upload model.Upload) error {
 		VALUES (?, ?, ?, ?, ?)
 	`, upload.OriginName, upload.SavedName, upload.Path, upload.MimeType, upload.Size)
 	return err
+}
+
+func (r *SQLiteRepository) ListUploads(limit int) ([]model.Upload, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, origin_name, saved_name, path, mime_type, size, created_at
+		FROM uploads
+		ORDER BY id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var uploads []model.Upload
+	for rows.Next() {
+		var upload model.Upload
+		if err := rows.Scan(
+			&upload.ID,
+			&upload.OriginName,
+			&upload.SavedName,
+			&upload.Path,
+			&upload.MimeType,
+			&upload.Size,
+			&upload.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		uploads = append(uploads, upload)
+	}
+
+	return uploads, rows.Err()
+}
+
+func (r *SQLiteRepository) GetUploadByID(id int64) (model.Upload, error) {
+	var upload model.Upload
+	row := r.DB.QueryRow(`
+		SELECT id, origin_name, saved_name, path, mime_type, size, created_at
+		FROM uploads
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+
+	err := row.Scan(
+		&upload.ID,
+		&upload.OriginName,
+		&upload.SavedName,
+		&upload.Path,
+		&upload.MimeType,
+		&upload.Size,
+		&upload.CreatedAt,
+	)
+	return upload, err
+}
+
+func (r *SQLiteRepository) DeleteUploadByID(id int64) error {
+	_, err := r.DB.Exec(`DELETE FROM uploads WHERE id = ?`, id)
+	return err
+}
+
+func (r *SQLiteRepository) CountPostReferencesByUploadURL(url string) (int, error) {
+	var total int
+	err := r.DB.QueryRow(`
+		SELECT COUNT(1)
+		FROM posts
+		WHERE cover_image = ? OR content LIKE ?
+	`, url, "%"+url+"%").Scan(&total)
+	return total, err
 }
 
 func SaveUploadedFile(src io.Reader, targetPath string) error {

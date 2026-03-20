@@ -3,28 +3,27 @@ package service
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"legend-portal/internal/model"
 	"legend-portal/internal/repository"
+	appstorage "legend-portal/internal/storage"
 	"legend-portal/internal/util"
 )
 
 type AdminService struct {
-	repo *repository.SQLiteRepository
+	repo    *repository.SQLiteRepository
+	storage appstorage.FileStorage
 }
 
-func NewAdminService(repo *repository.SQLiteRepository) *AdminService {
-	return &AdminService{repo: repo}
+func NewAdminService(repo *repository.SQLiteRepository, storage appstorage.FileStorage) *AdminService {
+	return &AdminService{repo: repo, storage: storage}
 }
 
 func (s *AdminService) Authenticate(username, password, ip string) (model.Admin, error) {
@@ -49,6 +48,31 @@ func (s *AdminService) Authenticate(username, password, ip string) (model.Admin,
 
 func (s *AdminService) ListPosts(limit int) ([]model.Post, error) {
 	return s.repo.ListAdminPosts(limit)
+}
+
+func (s *AdminService) ListCategories() ([]model.Category, error) {
+	return s.repo.ListCategories()
+}
+
+func (s *AdminService) GetCategory(id int64) (model.Category, error) {
+	category, err := s.repo.GetCategoryByID(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Category{}, ErrNotFound
+	}
+	return category, err
+}
+
+func (s *AdminService) CreateCategory(category model.Category) error {
+	category = normalizeCategory(category)
+	return s.repo.CreateCategory(category)
+}
+
+func (s *AdminService) UpdateCategory(category model.Category) error {
+	category = normalizeCategory(category)
+	if category.ID <= 0 {
+		return ErrNotFound
+	}
+	return s.repo.UpdateCategory(category)
 }
 
 func (s *AdminService) GetPost(id int64) (model.Post, error) {
@@ -153,29 +177,62 @@ func (s *AdminService) UploadImage(fileHeader *multipart.FileHeader) (model.Uplo
 		return model.Upload{}, err
 	}
 
-	datePath := time.Now().Format("2006/01")
-	savedName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
-	relativePath := filepath.ToSlash(filepath.Join(datePath, savedName))
-	storagePath := filepath.Join("storage", "uploads", datePath, savedName)
-
-	if err := repository.SaveUploadedFile(file, storagePath); err != nil {
+	stored, err := s.storage.SaveImage(file, ext)
+	if err != nil {
 		return model.Upload{}, err
 	}
 
 	upload := model.Upload{
 		OriginName: fileHeader.Filename,
-		SavedName:  savedName,
-		Path:       relativePath,
+		SavedName:  filepath.Base(stored.Key),
+		Path:       stored.Key,
+		URL:        stored.URL,
 		MimeType:   contentType,
 		Size:       fileHeader.Size,
 	}
 
 	if err := s.repo.CreateUpload(upload); err != nil {
-		_ = os.Remove(storagePath)
+		_ = s.storage.Delete(stored.Key)
 		return model.Upload{}, err
 	}
 
 	return upload, nil
+}
+
+func (s *AdminService) ListUploads(limit int) ([]model.Upload, error) {
+	uploads, err := s.repo.ListUploads(limit)
+	if err != nil {
+		return nil, err
+	}
+	for i := range uploads {
+		uploads[i].URL = s.storage.PublicURL(uploads[i].Path)
+	}
+	return uploads, nil
+}
+
+func (s *AdminService) DeleteUpload(id int64) error {
+	upload, err := s.repo.GetUploadByID(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	url := s.storage.PublicURL(upload.Path)
+	refCount, err := s.repo.CountPostReferencesByUploadURL(url)
+	if err != nil {
+		return err
+	}
+	if refCount > 0 {
+		return ErrUploadReferenced
+	}
+
+	if err := s.storage.Delete(upload.Path); err != nil {
+		return err
+	}
+
+	return s.repo.DeleteUploadByID(id)
 }
 
 func normalizePost(post model.Post) model.Post {
@@ -184,6 +241,7 @@ func normalizePost(post model.Post) model.Post {
 	post.Summary = strings.TrimSpace(post.Summary)
 	post.Content = strings.TrimSpace(post.Content)
 	post.ContentMarkdown = strings.TrimSpace(post.ContentMarkdown)
+	post.CoverImage = strings.TrimSpace(post.CoverImage)
 	post.Type = strings.TrimSpace(post.Type)
 	post.Status = strings.TrimSpace(post.Status)
 	post.GameVersion = strings.TrimSpace(post.GameVersion)
@@ -211,6 +269,22 @@ func normalizePost(post model.Post) model.Post {
 	return post
 }
 
+func normalizeCategory(category model.Category) model.Category {
+	category.Name = strings.TrimSpace(category.Name)
+	category.Slug = strings.TrimSpace(category.Slug)
+	category.SEOTitle = strings.TrimSpace(category.SEOTitle)
+	category.SEOKeywords = strings.TrimSpace(category.SEOKeywords)
+	category.SEODescription = strings.TrimSpace(category.SEODescription)
+
+	if category.Slug == "" {
+		category.Slug = util.Slugify(category.Name)
+	} else {
+		category.Slug = util.Slugify(category.Slug)
+	}
+
+	return category
+}
+
 var ErrInvalidCredentials = errors.New("invalid credentials")
 var ErrOldPasswordWrong = errors.New("old password wrong")
 var ErrPasswordNotMatch = errors.New("password confirm not match")
@@ -219,3 +293,4 @@ var ErrPasswordRequired = errors.New("password required")
 var ErrUploadRequired = errors.New("upload required")
 var ErrUploadTooLarge = errors.New("upload too large")
 var ErrUploadType = errors.New("upload type invalid")
+var ErrUploadReferenced = errors.New("upload referenced by posts")

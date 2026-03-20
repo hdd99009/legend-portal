@@ -33,10 +33,11 @@ type PostListViewData struct {
 }
 
 type PostFormViewData struct {
-	PageTitle string
-	Post      model.Post
-	Error     string
-	IsEdit    bool
+	PageTitle  string
+	Post       model.Post
+	Categories []model.Category
+	Error      string
+	IsEdit     bool
 }
 
 type PasswordViewData struct {
@@ -53,6 +54,26 @@ type MessageListViewData struct {
 type SettingsViewData struct {
 	PageTitle string
 	Settings  model.SiteSettings
+	Error     string
+	Success   string
+}
+
+type CategoryListViewData struct {
+	PageTitle  string
+	Categories []model.Category
+}
+
+type CategoryFormViewData struct {
+	PageTitle  string
+	Category   model.Category
+	Categories []model.Category
+	Error      string
+	IsEdit     bool
+}
+
+type UploadListViewData struct {
+	PageTitle string
+	Uploads   []model.Upload
 	Error     string
 	Success   string
 }
@@ -79,9 +100,16 @@ func (h *Handler) Register(g *echo.Group) {
 	protected.POST("/posts/new", h.PostCreate)
 	protected.GET("/posts/:id/edit", h.PostEditPage)
 	protected.POST("/posts/:id/edit", h.PostUpdate)
+	protected.GET("/categories", h.CategoryList)
+	protected.GET("/categories/new", h.CategoryNewPage)
+	protected.POST("/categories/new", h.CategoryCreate)
+	protected.GET("/categories/:id/edit", h.CategoryEditPage)
+	protected.POST("/categories/:id/edit", h.CategoryUpdate)
 	protected.GET("/messages", h.MessageList)
 	protected.POST("/messages/:id/approve", h.MessageApprove)
 	protected.POST("/messages/:id/hide", h.MessageHide)
+	protected.GET("/uploads", h.UploadList)
+	protected.POST("/uploads/:id/delete", h.UploadDelete)
 	protected.POST("/upload/image", h.UploadImage)
 	protected.GET("/settings", h.SettingsPage)
 	protected.POST("/settings", h.SettingsSubmit)
@@ -147,30 +175,42 @@ func (h *Handler) PostList(c echo.Context) error {
 }
 
 func (h *Handler) PostNewPage(c echo.Context) error {
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
+
 	return c.Render(http.StatusOK, "admin/post_form.html", PostFormViewData{
 		PageTitle: "新增文章",
 		Post: model.Post{
 			Type:   "game",
 			Status: "draft",
 		},
+		Categories: categories,
 	})
 }
 
 func (h *Handler) PostCreate(c echo.Context) error {
 	post := bindPostForm(c)
+	categories, listErr := h.adminService.ListCategories()
+	if listErr != nil {
+		return listErr
+	}
 	if post.Title == "" || post.Content == "" {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
-			PageTitle: "新增文章",
-			Post:      post,
-			Error:     "标题和正文不能为空",
+			PageTitle:  "新增文章",
+			Post:       post,
+			Categories: categories,
+			Error:      "标题和正文不能为空",
 		})
 	}
 
 	if err := h.adminService.CreatePost(post); err != nil {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
-			PageTitle: "新增文章",
-			Post:      post,
-			Error:     "保存失败，请检查 slug 是否重复",
+			PageTitle:  "新增文章",
+			Post:       post,
+			Categories: categories,
+			Error:      "保存失败，请检查 slug 是否重复",
 		})
 	}
 
@@ -187,11 +227,16 @@ func (h *Handler) PostEditPage(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusNotFound, "文章不存在")
 	}
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
 
 	return c.Render(http.StatusOK, "admin/post_form.html", PostFormViewData{
-		PageTitle: "编辑文章",
-		Post:      post,
-		IsEdit:    true,
+		PageTitle:  "编辑文章",
+		Post:       post,
+		Categories: categories,
+		IsEdit:     true,
 	})
 }
 
@@ -203,25 +248,140 @@ func (h *Handler) PostUpdate(c echo.Context) error {
 
 	post := bindPostForm(c)
 	post.ID = id
+	categories, listErr := h.adminService.ListCategories()
+	if listErr != nil {
+		return listErr
+	}
 	if post.Title == "" || post.Content == "" {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
-			PageTitle: "编辑文章",
-			Post:      post,
-			Error:     "标题和正文不能为空",
-			IsEdit:    true,
+			PageTitle:  "编辑文章",
+			Post:       post,
+			Categories: categories,
+			Error:      "标题和正文不能为空",
+			IsEdit:     true,
 		})
 	}
 
 	if err := h.adminService.UpdatePost(post); err != nil {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
-			PageTitle: "编辑文章",
-			Post:      post,
-			Error:     "更新失败，请检查 slug 是否重复",
-			IsEdit:    true,
+			PageTitle:  "编辑文章",
+			Post:       post,
+			Categories: categories,
+			Error:      "更新失败，请检查 slug 是否重复",
+			IsEdit:     true,
 		})
 	}
 
 	return c.Redirect(http.StatusFound, "/admin/posts")
+}
+
+func (h *Handler) CategoryList(c echo.Context) error {
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/categories_list.html", CategoryListViewData{
+		PageTitle:  "分类管理",
+		Categories: categories,
+	})
+}
+
+func (h *Handler) CategoryNewPage(c echo.Context) error {
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/category_form.html", CategoryFormViewData{
+		PageTitle:  "新增分类",
+		Categories: categories,
+	})
+}
+
+func (h *Handler) CategoryCreate(c echo.Context) error {
+	category := bindCategoryForm(c)
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
+	if category.Name == "" {
+		return c.Render(http.StatusBadRequest, "admin/category_form.html", CategoryFormViewData{
+			PageTitle:  "新增分类",
+			Category:   category,
+			Categories: categories,
+			Error:      "分类名称不能为空",
+		})
+	}
+
+	if err := h.adminService.CreateCategory(category); err != nil {
+		return c.Render(http.StatusBadRequest, "admin/category_form.html", CategoryFormViewData{
+			PageTitle:  "新增分类",
+			Category:   category,
+			Categories: categories,
+			Error:      "保存失败，请检查 slug 是否重复",
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/categories")
+}
+
+func (h *Handler) CategoryEditPage(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+
+	category, err := h.adminService.GetCategory(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "分类不存在")
+	}
+	categories, err := h.adminService.ListCategories()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/category_form.html", CategoryFormViewData{
+		PageTitle:  "编辑分类",
+		Category:   category,
+		Categories: categories,
+		IsEdit:     true,
+	})
+}
+
+func (h *Handler) CategoryUpdate(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+
+	category := bindCategoryForm(c)
+	category.ID = id
+	categories, listErr := h.adminService.ListCategories()
+	if listErr != nil {
+		return listErr
+	}
+	if category.Name == "" {
+		return c.Render(http.StatusBadRequest, "admin/category_form.html", CategoryFormViewData{
+			PageTitle:  "编辑分类",
+			Category:   category,
+			Categories: categories,
+			Error:      "分类名称不能为空",
+			IsEdit:     true,
+		})
+	}
+
+	if err := h.adminService.UpdateCategory(category); err != nil {
+		return c.Render(http.StatusBadRequest, "admin/category_form.html", CategoryFormViewData{
+			PageTitle:  "编辑分类",
+			Category:   category,
+			Categories: categories,
+			Error:      "更新失败，请检查 slug 是否重复",
+			IsEdit:     true,
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/categories")
 }
 
 func (h *Handler) PasswordPage(c echo.Context) error {
@@ -323,9 +483,40 @@ func (h *Handler) UploadImage(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"url":  "/uploads/" + upload.Path,
+		"url":  upload.URL,
 		"path": upload.Path,
 	})
+}
+
+func (h *Handler) UploadList(c echo.Context) error {
+	uploads, err := h.adminService.ListUploads(300)
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/uploads_list.html", UploadListViewData{
+		PageTitle: "图片管理",
+		Uploads:   uploads,
+		Error:     c.QueryParam("error"),
+		Success:   c.QueryParam("success"),
+	})
+}
+
+func (h *Handler) UploadDelete(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+	if err := h.adminService.DeleteUpload(id); err != nil {
+		if err == service.ErrNotFound {
+			return c.String(http.StatusNotFound, "图片不存在")
+		}
+		if err == service.ErrUploadReferenced {
+			return c.Redirect(http.StatusFound, "/admin/uploads?error=图片已被文章引用，不能删除")
+		}
+		return err
+	}
+	return c.Redirect(http.StatusFound, "/admin/uploads?success=图片已删除")
 }
 
 func (h *Handler) SettingsPage(c echo.Context) error {
@@ -386,6 +577,7 @@ func bindPostForm(c echo.Context) model.Post {
 		Subtitle:        c.FormValue("subtitle"),
 		Slug:            c.FormValue("slug"),
 		CategoryID:      categoryID,
+		CoverImage:      c.FormValue("cover_image"),
 		Summary:         c.FormValue("summary"),
 		Content:         c.FormValue("content"),
 		ContentMarkdown: c.FormValue("content_markdown"),
@@ -403,5 +595,20 @@ func bindPostForm(c echo.Context) model.Post {
 		SEOTitle:        c.FormValue("seo_title"),
 		SEOKeywords:     c.FormValue("seo_keywords"),
 		SEODescription:  c.FormValue("seo_description"),
+	}
+}
+
+func bindCategoryForm(c echo.Context) model.Category {
+	parentID, _ := strconv.ParseInt(c.FormValue("parent_id"), 10, 64)
+	sort, _ := strconv.Atoi(c.FormValue("sort"))
+
+	return model.Category{
+		Name:           c.FormValue("name"),
+		Slug:           c.FormValue("slug"),
+		ParentID:       parentID,
+		Sort:           sort,
+		SEOTitle:       c.FormValue("seo_title"),
+		SEOKeywords:    c.FormValue("seo_keywords"),
+		SEODescription: c.FormValue("seo_description"),
 	}
 }

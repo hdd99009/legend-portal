@@ -56,8 +56,11 @@
           {{range .Posts}}
           <div class="col-md-6 col-xl-4">
             <article class="card h-100 shadow-sm border-0">
+              {{if .CoverImage}}
+              <img src="{{.CoverImage}}" class="card-img-top object-fit-cover" alt="{{.Title}}" style="height: 220px;">
+              {{end}}
               <div class="card-body">
-                <div class="small text-muted mb-2">{{.PublishedAt}} · {{.GameVersion}} · {{.ServerLine}}</div>
+                <div class="small text-muted mb-2">{{.PublishedAt}} · {{.CategoryName}} · {{.GameVersion}} · {{.ServerLine}}</div>
                 <h3 class="h5"><a class="text-decoration-none" href="/posts/{{.Slug}}">{{.Title}}</a></h3>
                 <p class="text-secondary">{{.Summary}}</p>
               </div>

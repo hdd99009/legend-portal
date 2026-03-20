@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	App    AppConfig    `yaml:"app"`
-	Site   SiteConfig   `yaml:"site"`
-	SQLite SQLiteConfig `yaml:"sqlite"`
+	App     AppConfig     `yaml:"app"`
+	Site    SiteConfig    `yaml:"site"`
+	SQLite  SQLiteConfig  `yaml:"sqlite"`
+	Storage StorageConfig `yaml:"storage"`
 }
 
 type AppConfig struct {
@@ -28,6 +29,12 @@ type SiteConfig struct {
 
 type SQLiteConfig struct {
 	Path string `yaml:"path"`
+}
+
+type StorageConfig struct {
+	Driver       string `yaml:"driver"`
+	LocalPath    string `yaml:"local_path"`
+	PublicPrefix string `yaml:"public_prefix"`
 }
 
 func Load(path string) (*Config, error) {

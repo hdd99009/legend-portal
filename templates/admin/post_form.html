@@ -13,7 +13,9 @@
     <div class="container">
       <a class="navbar-brand fw-bold" href="/admin">后台管理</a>
       <div class="navbar-nav ms-auto">
+        <a class="nav-link" href="/admin/categories">分类管理</a>
         <a class="nav-link" href="/admin/posts">文章管理</a>
+        <a class="nav-link" href="/admin/uploads">图片管理</a>
         <a class="nav-link" href="/admin/messages">留言审核</a>
         <a class="nav-link" href="/admin/settings">站点设置</a>
         <a class="nav-link" href="/admin/password">修改密码</a>
@@ -49,10 +51,17 @@
                 <button class="btn btn-outline-secondary w-100" type="button" id="copyImageUrlBtn">复制图片地址</button>
               </div>
             </div>
+            <div class="mt-3">
+              <a class="btn btn-sm btn-outline-dark" href="/admin/uploads" target="_blank">打开图片管理</a>
+            </div>
             <div class="small text-secondary mt-2">图片保存在本地服务器 `storage/uploads`，已加基础 Referer 防盗链。</div>
             <div class="mt-3 d-none" id="uploadImageResultWrap">
               <label class="form-label">上传结果</label>
               <input class="form-control" id="uploadImageResult" readonly>
+            </div>
+            <div class="mt-3">
+              <label class="form-label">封面图地址</label>
+              <input class="form-control" id="coverImageInput" name="cover_image" value="{{.Post.CoverImage}}" placeholder="/uploads/2026/03/example.jpg">
             </div>
             <div class="mt-3 d-none" id="uploadImagePreviewWrap">
               <div class="small text-secondary mb-2">图片预览</div>
@@ -95,8 +104,13 @@
           <h2 class="h6 mb-3">业务信息</h2>
           <div class="row g-3">
             <div class="col-md-3">
-              <label class="form-label">分类 ID</label>
-              <input class="form-control" name="category_id" value="{{.Post.CategoryID}}">
+              <label class="form-label">分类</label>
+              <select class="form-select" name="category_id">
+                <option value="0">未分类</option>
+                {{range .Categories}}
+                <option value="{{.ID}}" {{if eq $.Post.CategoryID .ID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+              </select>
             </div>
             <div class="col-md-3">
               <label class="form-label">类型</label>
@@ -184,6 +198,7 @@
     const fileInput = document.getElementById('articleImage');
     const resultWrap = document.getElementById('uploadImageResultWrap');
     const resultInput = document.getElementById('uploadImageResult');
+    const coverImageInput = document.getElementById('coverImageInput');
     const previewWrap = document.getElementById('uploadImagePreviewWrap');
     const previewImg = document.getElementById('uploadImagePreview');
     const errorWrap = document.getElementById('uploadImageErrorWrap');
@@ -214,6 +229,7 @@
 
         resultWrap.classList.remove('d-none');
         resultInput.value = data.url;
+        coverImageInput.value = data.url;
         previewWrap.classList.remove('d-none');
         previewImg.src = data.url;
       } catch (error) {
@@ -235,6 +251,11 @@
       await navigator.clipboard.writeText(resultInput.value);
       errorWrap.classList.add('d-none');
     });
+
+    if (coverImageInput?.value) {
+      previewWrap.classList.remove('d-none');
+      previewImg.src = coverImageInput.value;
+    }
   </script>
 </body>
 </html>
