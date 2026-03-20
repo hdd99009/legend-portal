@@ -1,0 +1,31 @@
+.DS_Store
+**/.DS_Store
+
+# Go build outputs
+/web
+/legend-portal
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Local environment
+.env
+.env.*
+
+# SQLite runtime files
+*.db-shm
+*.db-wal
+
+# Local uploads and backups
+/storage/uploads/
+/storage/backup/
+/storage/logs/
+
+# Temporary editor files
+*.swp
+*.swo
+*~
