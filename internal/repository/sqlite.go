@@ -1,0 +1,366 @@
+package repository
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	_ "modernc.org/sqlite"
+
+	"legend-portal/internal/model"
+)
+
+type SQLiteRepository struct {
+	DB *sql.DB
+}
+
+func NewSQLiteRepository(path string) (*SQLiteRepository, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+
+	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)", path)
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	return &SQLiteRepository{DB: db}, nil
+}
+
+func (r *SQLiteRepository) Close() error {
+	return r.DB.Close()
+}
+
+func (r *SQLiteRepository) Migrate(sqlPath string) error {
+	content, err := os.ReadFile(sqlPath)
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.DB.Exec(string(content)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *SQLiteRepository) GetSiteSettings() (model.SiteSettings, error) {
+	var settings model.SiteSettings
+	row := r.DB.QueryRow(`
+		SELECT site_name, site_title, site_keywords, site_description, footer_text, contact_info
+		FROM site_settings
+		ORDER BY id ASC
+		LIMIT 1
+	`)
+
+	err := row.Scan(
+		&settings.SiteName,
+		&settings.SiteTitle,
+		&settings.SiteKeywords,
+		&settings.SiteDescription,
+		&settings.FooterText,
+		&settings.ContactInfo,
+	)
+
+	return settings, err
+}
+
+func (r *SQLiteRepository) FindAdminByUsername(username string) (model.Admin, error) {
+	var admin model.Admin
+	row := r.DB.QueryRow(`
+		SELECT id, username, password_hash, nickname, status
+		FROM admins
+		WHERE username = ?
+		LIMIT 1
+	`, strings.TrimSpace(username))
+
+	err := row.Scan(&admin.ID, &admin.Username, &admin.PasswordHash, &admin.Nickname, &admin.Status)
+	return admin, err
+}
+
+func (r *SQLiteRepository) UpdateAdminLogin(adminID int64, ip string) error {
+	_, err := r.DB.Exec(`
+		UPDATE admins
+		SET last_login_at = CURRENT_TIMESTAMP, last_login_ip = ?
+		WHERE id = ?
+	`, ip, adminID)
+	return err
+}
+
+func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
+		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
+		       seo_description, published_at, created_at, updated_at
+		FROM posts
+		WHERE status = 'published'
+		ORDER BY is_top DESC, published_at DESC, id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []model.Post
+	for rows.Next() {
+		var post model.Post
+		if err := rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.Subtitle,
+			&post.Slug,
+			&post.CategoryID,
+			&post.Summary,
+			&post.Content,
+			&post.ContentMarkdown,
+			&post.Type,
+			&post.Status,
+			&post.IsTop,
+			&post.IsRecommend,
+			&post.GameVersion,
+			&post.ServerLine,
+			&post.GameGenre,
+			&post.Region,
+			&post.OfficialURL,
+			&post.DownloadURL,
+			&post.QQGroup,
+			&post.SEOTitle,
+			&post.SEOKeywords,
+			&post.SEODescription,
+			&post.PublishedAt,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, rows.Err()
+}
+
+func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
+	var post model.Post
+	row := r.DB.QueryRow(`
+		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
+		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
+		       seo_description, published_at, created_at, updated_at
+		FROM posts
+		WHERE slug = ? AND status = 'published'
+		LIMIT 1
+	`, slug)
+
+	err := row.Scan(
+		&post.ID,
+		&post.Title,
+		&post.Subtitle,
+		&post.Slug,
+		&post.CategoryID,
+		&post.Summary,
+		&post.Content,
+		&post.ContentMarkdown,
+		&post.Type,
+		&post.Status,
+		&post.IsTop,
+		&post.IsRecommend,
+		&post.GameVersion,
+		&post.ServerLine,
+		&post.GameGenre,
+		&post.Region,
+		&post.OfficialURL,
+		&post.DownloadURL,
+		&post.QQGroup,
+		&post.SEOTitle,
+		&post.SEOKeywords,
+		&post.SEODescription,
+		&post.PublishedAt,
+		&post.CreatedAt,
+		&post.UpdatedAt,
+	)
+
+	return post, err
+}
+
+func (r *SQLiteRepository) ListAdminPosts(limit int) ([]model.Post, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
+		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
+		       seo_description, published_at, created_at, updated_at
+		FROM posts
+		ORDER BY updated_at DESC, id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []model.Post
+	for rows.Next() {
+		var post model.Post
+		if err := rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.Subtitle,
+			&post.Slug,
+			&post.CategoryID,
+			&post.Summary,
+			&post.Content,
+			&post.ContentMarkdown,
+			&post.Type,
+			&post.Status,
+			&post.IsTop,
+			&post.IsRecommend,
+			&post.GameVersion,
+			&post.ServerLine,
+			&post.GameGenre,
+			&post.Region,
+			&post.OfficialURL,
+			&post.DownloadURL,
+			&post.QQGroup,
+			&post.SEOTitle,
+			&post.SEOKeywords,
+			&post.SEODescription,
+			&post.PublishedAt,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, rows.Err()
+}
+
+func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
+	var post model.Post
+	row := r.DB.QueryRow(`
+		SELECT id, title, subtitle, slug, category_id, summary, content, content_markdown, type, status, is_top, is_recommend, game_version, server_line,
+		       game_genre, region, official_url, download_url, qq_group, seo_title, seo_keywords,
+		       seo_description, published_at, created_at, updated_at
+		FROM posts
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+
+	err := row.Scan(
+		&post.ID,
+		&post.Title,
+		&post.Subtitle,
+		&post.Slug,
+		&post.CategoryID,
+		&post.Summary,
+		&post.Content,
+		&post.ContentMarkdown,
+		&post.Type,
+		&post.Status,
+		&post.IsTop,
+		&post.IsRecommend,
+		&post.GameVersion,
+		&post.ServerLine,
+		&post.GameGenre,
+		&post.Region,
+		&post.OfficialURL,
+		&post.DownloadURL,
+		&post.QQGroup,
+		&post.SEOTitle,
+		&post.SEOKeywords,
+		&post.SEODescription,
+		&post.PublishedAt,
+		&post.CreatedAt,
+		&post.UpdatedAt,
+	)
+	return post, err
+}
+
+func (r *SQLiteRepository) CreatePost(post model.Post) error {
+	_, err := r.DB.Exec(`
+		INSERT INTO posts (
+			title, subtitle, slug, summary, content, content_markdown, type, category_id, status,
+			is_top, is_recommend, game_version, server_line, game_genre, region, official_url,
+			download_url, qq_group, seo_title, seo_keywords, seo_description, published_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`,
+		post.Title, post.Subtitle, post.Slug, post.Summary, post.Content, post.ContentMarkdown,
+		post.Type, post.CategoryID, post.Status, post.IsTop, post.IsRecommend, post.GameVersion,
+		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
+		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription,
+	)
+	return err
+}
+
+func (r *SQLiteRepository) UpdatePost(post model.Post) error {
+	_, err := r.DB.Exec(`
+		UPDATE posts SET
+			title = ?, subtitle = ?, slug = ?, summary = ?, content = ?, content_markdown = ?,
+			type = ?, category_id = ?, status = ?, is_top = ?, is_recommend = ?, game_version = ?,
+			server_line = ?, game_genre = ?, region = ?, official_url = ?, download_url = ?,
+			qq_group = ?, seo_title = ?, seo_keywords = ?, seo_description = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`,
+		post.Title, post.Subtitle, post.Slug, post.Summary, post.Content, post.ContentMarkdown,
+		post.Type, post.CategoryID, post.Status, post.IsTop, post.IsRecommend, post.GameVersion,
+		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
+		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription, post.ID,
+	)
+	return err
+}
+
+func (r *SQLiteRepository) ListApprovedMessages(limit int) ([]model.GuestbookMessage, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, nickname, contact, content, status, created_at
+		FROM guestbook_messages
+		WHERE status = 'approved'
+		ORDER BY id DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []model.GuestbookMessage
+	for rows.Next() {
+		var message model.GuestbookMessage
+		if err := rows.Scan(
+			&message.ID,
+			&message.Nickname,
+			&message.Contact,
+			&message.Content,
+			&message.Status,
+			&message.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		messages = append(messages, message)
+	}
+
+	return messages, rows.Err()
+}
+
+func (r *SQLiteRepository) CreateGuestbookMessage(nickname, contact, content, ip string) error {
+	nickname = strings.TrimSpace(nickname)
+	contact = strings.TrimSpace(contact)
+	content = strings.TrimSpace(content)
+
+	_, err := r.DB.Exec(`
+		INSERT INTO guestbook_messages (nickname, contact, content, ip, status)
+		VALUES (?, ?, ?, ?, 'pending')
+	`, nickname, contact, content, ip)
+
+	return err
+}
+
+func (r *SQLiteRepository) CountPendingMessages() (int, error) {
+	var total int
+	err := r.DB.QueryRow(`SELECT COUNT(1) FROM guestbook_messages WHERE status = 'pending'`).Scan(&total)
+	return total, err
+}

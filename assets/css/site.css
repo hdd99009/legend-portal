@@ -1,0 +1,23 @@
+body {
+  background: #f5f6f8;
+  color: #1f2937;
+}
+
+.hero-panel {
+  background:
+    radial-gradient(circle at top right, rgba(255, 196, 0, 0.22), transparent 30%),
+    linear-gradient(135deg, #1f2937, #374151 50%, #111827);
+  color: #fff;
+}
+
+.stat-card {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  padding: 1rem;
+}
+
+.content-body p {
+  line-height: 1.8;
+  margin-bottom: 1rem;
+}

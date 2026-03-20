@@ -1,0 +1,24 @@
+{{define "layouts/base"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.PageTitle}}</title>
+  <meta name="keywords" content="{{.SiteKeywords}}">
+  <meta name="description" content="{{.SiteDescription}}">
+  <link href="/assets/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/site.css" rel="stylesheet">
+</head>
+<body>
+  {{template "partials/header" .}}
+  <main class="py-4">
+    <div class="container">
+      {{template "content" .}}
+    </div>
+  </main>
+  {{template "partials/footer" .}}
+  <script src="/assets/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,51 @@
+{{define "site/post_detail.html"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.PageTitle}}</title>
+  <meta name="keywords" content="{{.SiteKeywords}}">
+  <meta name="description" content="{{.SiteDescription}}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/site.css" rel="stylesheet">
+</head>
+<body>
+  {{$post := .Post}}
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary-subtle">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">传奇私服门户</a>
+      <div class="navbar-nav">
+        <a class="nav-link" href="/">首页</a>
+        <a class="nav-link" href="/guestbook">玩家留言</a>
+      </div>
+    </div>
+  </nav>
+  <main class="py-4">
+    <div class="container">
+      <article class="card border-0 shadow-sm">
+        <div class="card-body p-4 p-md-5">
+          <div class="text-muted small mb-2">{{$post.PublishedAt}} · {{$post.GameVersion}} · {{$post.ServerLine}} · {{$post.Region}}</div>
+          <h1 class="mb-3">{{$post.Title}}</h1>
+          {{if $post.Subtitle}}<p class="lead text-secondary">{{$post.Subtitle}}</p>{{end}}
+          <div class="mb-4">
+            <span class="badge text-bg-dark me-2">{{$post.GameGenre}}</span>
+            <span class="badge text-bg-secondary me-2">{{$post.Type}}</span>
+          </div>
+          <div class="content-body">{{safeHTML $post.Content}}</div>
+          <hr class="my-4">
+          <div class="row g-3">
+            <div class="col-md-4"><strong>版本：</strong>{{$post.GameVersion}}</div>
+            <div class="col-md-4"><strong>线路：</strong>{{$post.ServerLine}}</div>
+            <div class="col-md-4"><strong>交流群：</strong>{{$post.QQGroup}}</div>
+            <div class="col-md-6"><strong>官网：</strong><a href="{{$post.OfficialURL}}" target="_blank" rel="nofollow">{{$post.OfficialURL}}</a></div>
+            <div class="col-md-6"><strong>下载：</strong><a href="{{$post.DownloadURL}}" target="_blank" rel="nofollow">{{$post.DownloadURL}}</a></div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}

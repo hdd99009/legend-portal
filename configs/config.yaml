@@ -1,0 +1,14 @@
+app:
+  name: "传奇私服游戏门户"
+  addr: ":8080"
+  base_url: "http://127.0.0.1:8080"
+  is_production: false
+  session_secret: "change-me-to-a-long-random-secret"
+
+site:
+  title: "传奇私服游戏门户"
+  keywords: "传奇私服,传奇发布网,传奇开服表,传奇攻略"
+  description: "专注传奇私服游戏发布、开服信息与玩家留言交流的轻量门户网站。"
+
+sqlite:
+  path: "storage/data/site.db"

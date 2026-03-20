@@ -1,0 +1,40 @@
+{{define "admin/login.html"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.PageTitle}}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/site.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <h1 class="h4 mb-3">后台登录</h1>
+            <p class="text-secondary small">默认账号 `admin`，当前示例密码是 `password`。</p>
+            {{if .Error}}
+            <div class="alert alert-danger">{{.Error}}</div>
+            {{end}}
+            <form method="post" action="/admin/login" class="vstack gap-3">
+              <div>
+                <label class="form-label">用户名</label>
+                <input class="form-control" name="username" required value="admin">
+              </div>
+              <div>
+                <label class="form-label">密码</label>
+                <input class="form-control" type="password" name="password" required>
+              </div>
+              <button class="btn btn-dark" type="submit">登录后台</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+{{end}}
