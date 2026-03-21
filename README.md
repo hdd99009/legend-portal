@@ -77,7 +77,7 @@ env GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod-cache go run ./cmd/web
 
 ## 生产部署
 
-推荐部署方式：`GitHub Actions + SSH 自动发布 + systemd + Nginx`
+推荐部署方式：`GitHub Actions 编译 Linux 二进制 + SSH 自动发布 + systemd + Nginx`
 
 ### 服务器目录
 
@@ -110,26 +110,20 @@ env GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod-cache go run ./cmd/web
 1. 安装依赖：
 
 ```bash
-sudo apt update
-sudo apt install -y git nginx curl
+sudo dnf makecache
+sudo dnf install -y git nginx curl
 ```
 
-2. 安装 Go，并确认服务器能执行：
-
-```bash
-go version
-```
-
-3. 准备目录并拉代码：
+2. 准备目录并拉代码：
 
 ```bash
 sudo mkdir -p /srv/legend-portal
 sudo chown -R $USER:$USER /srv/legend-portal
-git clone https://github.com/hdd99009/legend-portal.git /srv/legend-portal/app
+git clone git@github.com:hdd99009/legend-portal.git /srv/legend-portal/app
 chmod +x /srv/legend-portal/app/deploy/deploy.sh
 ```
 
-4. 安装 systemd 服务：
+3. 安装 systemd 服务：
 
 ```bash
 sudo cp /srv/legend-portal/app/deploy/legend-portal.service /etc/systemd/system/legend-portal.service
@@ -137,21 +131,28 @@ sudo systemctl daemon-reload
 sudo systemctl enable legend-portal
 ```
 
-5. 安装 Nginx 配置：
+4. 安装 Nginx 配置：
 
 ```bash
-sudo cp /srv/legend-portal/app/deploy/nginx.conf /etc/nginx/sites-available/legend-portal
-sudo ln -sf /etc/nginx/sites-available/legend-portal /etc/nginx/sites-enabled/legend-portal
+sudo cp /srv/legend-portal/app/deploy/nginx.conf /etc/nginx/conf.d/legend-portal.conf
 sudo nginx -t
+sudo systemctl enable --now nginx
 sudo systemctl reload nginx
 ```
+
+5. 修改 Nginx 里的域名，并准备生产配置：
+
+- 把 `/srv/legend-portal/app/deploy/nginx.conf` 里的 `your-domain.com` 换成真实域名
+- 首次发布后会生成 `/srv/legend-portal/shared/config.production.yaml`
 
 6. 首次手动发布一次：
 
 ```bash
 cd /srv/legend-portal/app
-DEPLOY_PATH=/srv/legend-portal/app bash deploy/deploy.sh
+BOOTSTRAP_ONLY=1 DEPLOY_PATH=/srv/legend-portal/app bash deploy/deploy.sh
 ```
+
+首次手动执行只用于创建共享目录和配置模板，真正的可执行文件将由 GitHub Actions 上传。
 
 查看状态：
 
@@ -182,11 +183,13 @@ curl http://127.0.0.1:8080/healthz
 
 配置完成后，每次 push 到 `main`，GitHub Actions 都会：
 
-1. SSH 登录服务器
-2. 进入 `/srv/legend-portal/app`
-3. 执行 `deploy/deploy.sh`
-4. 拉最新代码、编译、重启服务
-5. 检查 `http://127.0.0.1:8080/healthz`
+1. 在 GitHub 官方环境里编译 `linux/amd64` 二进制
+2. 通过 SSH 把 `legend-portal` 上传到服务器
+3. SSH 登录服务器
+4. 进入 `/srv/legend-portal/app`
+5. 执行 `deploy/deploy.sh`
+6. 拉最新代码、保留共享数据、重启服务
+7. 检查 `http://127.0.0.1:8080/healthz`
 
 ### 常用运维命令
 
@@ -213,4 +216,11 @@ sudo systemctl restart legend-portal
 ```bash
 cd /srv/legend-portal/app
 DEPLOY_PATH=/srv/legend-portal/app bash deploy/deploy.sh
+```
+
+如果 GitHub Actions 上传了新二进制但站点异常，先检查：
+
+```bash
+sudo systemctl status legend-portal
+sudo journalctl -u legend-portal -n 100 --no-pager
 ```
