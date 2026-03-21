@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"legend-portal/internal/app"
 	"legend-portal/internal/config"
@@ -11,7 +12,12 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load("configs/config.yaml")
+	configPath := os.Getenv("APP_CONFIG_PATH")
+	if configPath == "" {
+		configPath = "configs/config.yaml"
+	}
+
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("load config failed: %v", err)
 	}
@@ -43,7 +49,7 @@ func main() {
 	adminService := service.NewAdminService(repo, storage)
 	server := app.NewServer(renderer, siteService, adminService, cfg.App.SessionSecret, storage)
 
-	log.Printf("server started at %s", cfg.App.Addr)
+	log.Printf("server started at %s using config %s", cfg.App.Addr, configPath)
 	if err := server.Start(cfg.App.Addr); err != nil {
 		log.Fatalf("server exited: %v", err)
 	}

@@ -1,0 +1,16 @@
+[Unit]
+Description=Legend Portal Go Web App
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/legend-portal/app
+Environment=APP_CONFIG_PATH=/srv/legend-portal/shared/config.production.yaml
+ExecStart=/srv/legend-portal/app/legend-portal
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

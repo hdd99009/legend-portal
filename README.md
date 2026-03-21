@@ -74,3 +74,143 @@ env GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod-cache go run ./cmd/web
 3. 给后台补登录日志和操作日志
 4. 把 Bootstrap CDN 改成本地静态文件
 5. 补评论频控和敏感词过滤
+
+## 生产部署
+
+推荐部署方式：`GitHub Actions + SSH 自动发布 + systemd + Nginx`
+
+### 服务器目录
+
+约定生产环境使用：
+
+- 代码目录：`/srv/legend-portal/app`
+- 共享目录：`/srv/legend-portal/shared`
+- SQLite：`/srv/legend-portal/shared/data/site.db`
+- 上传目录：`/srv/legend-portal/shared/uploads`
+- 运行配置：`/srv/legend-portal/shared/config.production.yaml`
+
+### 应用配置
+
+程序支持通过环境变量 `APP_CONFIG_PATH` 指定配置文件。
+
+- 本地默认仍使用：`configs/config.yaml`
+- 生产模板已提供：`configs/config.production.yaml`
+
+首次部署时，`deploy/deploy.sh` 会在共享目录里自动生成一份配置文件模板：
+
+`/srv/legend-portal/shared/config.production.yaml`
+
+请在服务器上至少修改这两项：
+
+- `app.base_url`
+- `app.session_secret`
+
+### 首次部署准备
+
+1. 安装依赖：
+
+```bash
+sudo apt update
+sudo apt install -y git nginx curl
+```
+
+2. 安装 Go，并确认服务器能执行：
+
+```bash
+go version
+```
+
+3. 准备目录并拉代码：
+
+```bash
+sudo mkdir -p /srv/legend-portal
+sudo chown -R $USER:$USER /srv/legend-portal
+git clone https://github.com/hdd99009/legend-portal.git /srv/legend-portal/app
+chmod +x /srv/legend-portal/app/deploy/deploy.sh
+```
+
+4. 安装 systemd 服务：
+
+```bash
+sudo cp /srv/legend-portal/app/deploy/legend-portal.service /etc/systemd/system/legend-portal.service
+sudo systemctl daemon-reload
+sudo systemctl enable legend-portal
+```
+
+5. 安装 Nginx 配置：
+
+```bash
+sudo cp /srv/legend-portal/app/deploy/nginx.conf /etc/nginx/sites-available/legend-portal
+sudo ln -sf /etc/nginx/sites-available/legend-portal /etc/nginx/sites-enabled/legend-portal
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+6. 首次手动发布一次：
+
+```bash
+cd /srv/legend-portal/app
+DEPLOY_PATH=/srv/legend-portal/app bash deploy/deploy.sh
+```
+
+查看状态：
+
+```bash
+sudo systemctl status legend-portal
+curl http://127.0.0.1:8080/healthz
+```
+
+### GitHub Actions 自动发布
+
+仓库已包含工作流：
+
+- `.github/workflows/deploy.yml`
+
+你需要在 GitHub 仓库里配置这些 Secrets：
+
+- `SERVER_HOST`
+- `SERVER_PORT`
+- `SERVER_USER`
+- `SERVER_SSH_KEY`
+- `DEPLOY_PATH`
+
+建议值：
+
+- `DEPLOY_PATH=/srv/legend-portal/app`
+- `SERVER_PORT=22`
+- `SERVER_USER=root` 或具备 `systemctl` 权限的部署用户
+
+配置完成后，每次 push 到 `main`，GitHub Actions 都会：
+
+1. SSH 登录服务器
+2. 进入 `/srv/legend-portal/app`
+3. 执行 `deploy/deploy.sh`
+4. 拉最新代码、编译、重启服务
+5. 检查 `http://127.0.0.1:8080/healthz`
+
+### 常用运维命令
+
+查看服务状态：
+
+```bash
+sudo systemctl status legend-portal
+```
+
+查看运行日志：
+
+```bash
+sudo journalctl -u legend-portal -n 100 --no-pager
+```
+
+手动重启：
+
+```bash
+sudo systemctl restart legend-portal
+```
+
+手动发布：
+
+```bash
+cd /srv/legend-portal/app
+DEPLOY_PATH=/srv/legend-portal/app bash deploy/deploy.sh
+```
