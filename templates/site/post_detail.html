@@ -12,44 +12,104 @@
 </head>
 <body>
   {{$post := .Post}}
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary-subtle">
-    <div class="container">
+  <nav class="navbar navbar-expand-lg site-nav">
+    <div class="container site-shell">
       <a class="navbar-brand fw-bold" href="/">{{.SiteTitle}}</a>
-      <div class="navbar-nav">
+      <div class="navbar-nav flex-row gap-3">
         <a class="nav-link" href="/">首页</a>
         <a class="nav-link" href="/guestbook">玩家留言</a>
       </div>
     </div>
   </nav>
-  <main class="py-4">
-    <div class="container">
-      <article class="card border-0 shadow-sm">
-        <div class="card-body p-4 p-md-5">
-          <div class="text-muted small mb-2">{{$post.PublishedAt}} · {{$post.CategoryName}} · {{$post.GameVersion}} · {{$post.ServerLine}} · {{$post.Region}}</div>
-          <h1 class="mb-3">{{$post.Title}}</h1>
-          {{if $post.Subtitle}}<p class="lead text-secondary">{{$post.Subtitle}}</p>{{end}}
-          {{if $post.CoverImage}}
-          <div class="mb-4">
-            <img src="{{$post.CoverImage}}" class="img-fluid rounded border" alt="{{$post.Title}}">
+  <main class="py-4 py-lg-5">
+    <div class="container site-shell">
+      <section class="mb-4">
+        <div class="detail-hero">
+          <a class="detail-back-link" href="/">返回首页</a>
+          <div class="detail-meta">{{$post.PublishedAt}} · {{$post.CategoryName}} · {{$post.GameVersion}} · {{$post.ServerLine}} · {{$post.Region}}</div>
+          <h1 class="detail-title">{{$post.Title}}</h1>
+          {{if $post.Subtitle}}<p class="detail-subtitle mb-0">{{$post.Subtitle}}</p>{{end}}
+          <div class="detail-badges mt-4">
+            {{if $post.GameGenre}}<span class="detail-badge">{{$post.GameGenre}}</span>{{end}}
+            {{if $post.Type}}<span class="detail-badge">{{$post.Type}}</span>{{end}}
           </div>
-          {{end}}
-          <div class="mb-4">
-            <span class="badge text-bg-dark me-2">{{$post.GameGenre}}</span>
-            <span class="badge text-bg-secondary me-2">{{$post.Type}}</span>
+        </div>
+      </section>
+      <article class="detail-shell">
+        {{if $post.CoverImage}}
+        <div class="detail-cover-wrap">
+          <img src="{{$post.CoverImage}}" class="detail-cover" alt="{{$post.Title}}" onerror="this.closest('.detail-cover-wrap').classList.add('is-fallback'); this.remove();">
+          <div class="detail-cover-fallback">
+            <div class="portal-cover-badge">封面</div>
+            <div class="portal-cover-text">玛法热服情报</div>
           </div>
-          <div class="content-body">{{safeHTML $post.Content}}</div>
-          <hr class="my-4">
-          <div class="row g-3">
-            <div class="col-md-4"><strong>版本：</strong>{{$post.GameVersion}}</div>
-            <div class="col-md-4"><strong>线路：</strong>{{$post.ServerLine}}</div>
-            <div class="col-md-4"><strong>交流群：</strong>{{$post.QQGroup}}</div>
-            <div class="col-md-6"><strong>官网：</strong><a href="{{$post.OfficialURL}}" target="_blank" rel="nofollow">{{$post.OfficialURL}}</a></div>
-            <div class="col-md-6"><strong>下载：</strong><a href="{{$post.DownloadURL}}" target="_blank" rel="nofollow">{{$post.DownloadURL}}</a></div>
+        </div>
+        {{else}}
+        <div class="detail-cover-wrap is-fallback">
+          <div class="detail-cover-fallback">
+            <div class="portal-cover-badge">封面</div>
+            <div class="portal-cover-text">玛法热服情报</div>
+          </div>
+        </div>
+        {{end}}
+        <div class="detail-content-wrap">
+          <div class="content-body detail-content">{{safeHTML $post.Content}}</div>
+          <section class="detail-info-section">
+            <h2 class="detail-section-title">发布信息</h2>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <div class="detail-info-card">
+                  <div class="detail-info-label">版本</div>
+                  <div class="detail-info-value">{{$post.GameVersion}}</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="detail-info-card">
+                  <div class="detail-info-label">线路</div>
+                  <div class="detail-info-value">{{$post.ServerLine}}</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="detail-info-card">
+                  <div class="detail-info-label">交流群</div>
+                  <div class="detail-info-value">{{$post.QQGroup}}</div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="detail-info-card">
+                  <div class="detail-info-label">官网地址</div>
+                  <div class="detail-info-value">
+                    {{if $post.OfficialURL}}
+                    <a href="{{$post.OfficialURL}}" target="_blank" rel="nofollow noopener">{{$post.OfficialURL}}</a>
+                    {{else}}暂无{{end}}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="detail-info-card">
+                  <div class="detail-info-label">下载地址</div>
+                  <div class="detail-info-value">
+                    {{if $post.DownloadURL}}
+                    <a href="{{$post.DownloadURL}}" target="_blank" rel="nofollow noopener">{{$post.DownloadURL}}</a>
+                    {{else}}暂无{{end}}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </article>
+      <div class="mt-4">
+        <a class="detail-back-link" href="/">返回首页继续浏览</a>
+      </div>
     </div>
   </main>
+  <footer class="site-footer py-4 mt-5">
+    <div class="container site-shell d-flex flex-column flex-md-row justify-content-between small gap-2">
+      <div>{{.FooterText}}</div>
+      <div>{{.ContactInfo}}</div>
+    </div>
+  </footer>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
