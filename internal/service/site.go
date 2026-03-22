@@ -36,6 +36,18 @@ func (s *SiteService) PostBySlug(slug string) (model.Post, error) {
 	return post, err
 }
 
+func (s *SiteService) TagBySlug(slug string) (model.Tag, error) {
+	tag, err := s.repo.GetTagBySlug(slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Tag{}, ErrNotFound
+	}
+	return tag, err
+}
+
+func (s *SiteService) PostsByTag(tagID int64, limit int) ([]model.Post, error) {
+	return s.repo.ListPublishedPostsByTag(tagID, limit)
+}
+
 func (s *SiteService) ApprovedMessages(limit int) ([]model.GuestbookMessage, error) {
 	return s.repo.ListApprovedMessages(limit)
 }

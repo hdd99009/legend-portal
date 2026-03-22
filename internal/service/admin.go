@@ -54,6 +54,31 @@ func (s *AdminService) ListCategories() ([]model.Category, error) {
 	return s.repo.ListCategories()
 }
 
+func (s *AdminService) ListTags() ([]model.Tag, error) {
+	return s.repo.ListTags()
+}
+
+func (s *AdminService) GetTag(id int64) (model.Tag, error) {
+	tag, err := s.repo.GetTagByID(id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Tag{}, ErrNotFound
+	}
+	return tag, err
+}
+
+func (s *AdminService) CreateTag(tag model.Tag) error {
+	tag = normalizeTag(tag)
+	return s.repo.CreateTag(tag)
+}
+
+func (s *AdminService) UpdateTag(tag model.Tag) error {
+	tag = normalizeTag(tag)
+	if tag.ID <= 0 {
+		return ErrNotFound
+	}
+	return s.repo.UpdateTag(tag)
+}
+
 func (s *AdminService) GetCategory(id int64) (model.Category, error) {
 	category, err := s.repo.GetCategoryByID(id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -283,6 +308,19 @@ func normalizeCategory(category model.Category) model.Category {
 	}
 
 	return category
+}
+
+func normalizeTag(tag model.Tag) model.Tag {
+	tag.Name = strings.TrimSpace(tag.Name)
+	tag.Slug = strings.TrimSpace(tag.Slug)
+
+	if tag.Slug == "" {
+		tag.Slug = util.Slugify(tag.Name)
+	} else {
+		tag.Slug = util.Slugify(tag.Slug)
+	}
+
+	return tag
 }
 
 var ErrInvalidCredentials = errors.New("invalid credentials")

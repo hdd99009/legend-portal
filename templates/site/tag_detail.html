@@ -1,0 +1,85 @@
+{{define "site/tag_detail.html"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.PageTitle}}</title>
+  <meta name="keywords" content="{{.SiteKeywords}}">
+  <meta name="description" content="{{.SiteDescription}}">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/css/site.css" rel="stylesheet">
+</head>
+<body>
+  {{$tag := .Tag}}
+  <nav class="navbar navbar-expand-lg site-nav">
+    <div class="container site-shell">
+      <a class="navbar-brand fw-bold" href="/">{{.SiteTitle}}</a>
+      <div class="navbar-nav flex-row gap-3">
+        <a class="nav-link" href="/">首页</a>
+        <a class="nav-link" href="/guestbook">玩家留言</a>
+      </div>
+    </div>
+  </nav>
+  <main class="py-4 py-lg-5">
+    <div class="container site-shell">
+      <section class="mb-4">
+        <div class="detail-hero">
+          <a class="detail-back-link" href="/">返回首页</a>
+          <div class="detail-meta">标签聚合 · 内容归档</div>
+          <h1 class="detail-title">{{$tag.Name}}</h1>
+          <p class="detail-subtitle mb-0">这里汇总了带有“{{$tag.Name}}”标签的文章内容，方便按主题快速浏览。</p>
+        </div>
+      </section>
+      <section>
+        <div class="row g-3">
+          {{range .Posts}}
+          <div class="col-md-6 col-xl-4">
+            <article class="portal-card h-100">
+              {{if .CoverImage}}
+              <div class="portal-cover-wrap">
+                <img src="{{.CoverImage}}" class="portal-cover" alt="{{.Title}}" onerror="this.closest('.portal-cover-wrap').classList.add('is-fallback'); this.remove();">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">标签</div>
+                  <div class="portal-cover-text">{{$tag.Name}}</div>
+                </div>
+              </div>
+              {{else}}
+              <div class="portal-cover-wrap is-fallback">
+                <div class="portal-cover-fallback">
+                  <div class="portal-cover-badge">标签</div>
+                  <div class="portal-cover-text">{{$tag.Name}}</div>
+                </div>
+              </div>
+              {{end}}
+              <div class="portal-card-body">
+                <div class="portal-meta mb-2">{{.PublishedAt}} · {{.CategoryName}} · {{.GameVersion}} · {{.ServerLine}}</div>
+                <h3 class="portal-card-title"><a class="text-decoration-none" href="/posts/{{.Slug}}">{{.Title}}</a></h3>
+                <p class="portal-card-copy mb-3">{{.Summary}}</p>
+                <div class="d-flex flex-wrap gap-2">
+                  {{range .Tags}}
+                  <a class="detail-badge text-decoration-none" href="/tags/{{.Slug}}">{{.Name}}</a>
+                  {{end}}
+                </div>
+              </div>
+            </article>
+          </div>
+          {{else}}
+          <div class="col-12">
+            <div class="alert alert-secondary mb-0">这个标签下暂时还没有文章内容。</div>
+          </div>
+          {{end}}
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer py-4 mt-5">
+    <div class="container site-shell d-flex flex-column flex-md-row justify-content-between small gap-2">
+      <div>{{.FooterText}}</div>
+      <div>{{.ContactInfo}}</div>
+    </div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+{{end}}

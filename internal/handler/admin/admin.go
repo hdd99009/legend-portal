@@ -36,6 +36,7 @@ type PostFormViewData struct {
 	PageTitle  string
 	Post       model.Post
 	Categories []model.Category
+	Tags       []model.Tag
 	Error      string
 	IsEdit     bool
 }
@@ -69,6 +70,18 @@ type CategoryFormViewData struct {
 	Categories []model.Category
 	Error      string
 	IsEdit     bool
+}
+
+type TagListViewData struct {
+	PageTitle string
+	Tags      []model.Tag
+}
+
+type TagFormViewData struct {
+	PageTitle string
+	Tag       model.Tag
+	Error     string
+	IsEdit    bool
 }
 
 type UploadListViewData struct {
@@ -105,6 +118,11 @@ func (h *Handler) Register(g *echo.Group) {
 	protected.POST("/categories/new", h.CategoryCreate)
 	protected.GET("/categories/:id/edit", h.CategoryEditPage)
 	protected.POST("/categories/:id/edit", h.CategoryUpdate)
+	protected.GET("/tags", h.TagList)
+	protected.GET("/tags/new", h.TagNewPage)
+	protected.POST("/tags/new", h.TagCreate)
+	protected.GET("/tags/:id/edit", h.TagEditPage)
+	protected.POST("/tags/:id/edit", h.TagUpdate)
 	protected.GET("/messages", h.MessageList)
 	protected.POST("/messages/:id/approve", h.MessageApprove)
 	protected.POST("/messages/:id/hide", h.MessageHide)
@@ -179,6 +197,10 @@ func (h *Handler) PostNewPage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	tags, err := h.adminService.ListTags()
+	if err != nil {
+		return err
+	}
 
 	return c.Render(http.StatusOK, "admin/post_form.html", PostFormViewData{
 		PageTitle: "新增文章",
@@ -187,6 +209,7 @@ func (h *Handler) PostNewPage(c echo.Context) error {
 			Status: "draft",
 		},
 		Categories: categories,
+		Tags:       tags,
 	})
 }
 
@@ -196,11 +219,16 @@ func (h *Handler) PostCreate(c echo.Context) error {
 	if listErr != nil {
 		return listErr
 	}
+	tags, tagErr := h.adminService.ListTags()
+	if tagErr != nil {
+		return tagErr
+	}
 	if post.Title == "" || post.Content == "" {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
 			PageTitle:  "新增文章",
 			Post:       post,
 			Categories: categories,
+			Tags:       tags,
 			Error:      "标题和正文不能为空",
 		})
 	}
@@ -210,6 +238,7 @@ func (h *Handler) PostCreate(c echo.Context) error {
 			PageTitle:  "新增文章",
 			Post:       post,
 			Categories: categories,
+			Tags:       tags,
 			Error:      "保存失败，请检查 slug 是否重复",
 		})
 	}
@@ -231,11 +260,16 @@ func (h *Handler) PostEditPage(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	tags, err := h.adminService.ListTags()
+	if err != nil {
+		return err
+	}
 
 	return c.Render(http.StatusOK, "admin/post_form.html", PostFormViewData{
 		PageTitle:  "编辑文章",
 		Post:       post,
 		Categories: categories,
+		Tags:       tags,
 		IsEdit:     true,
 	})
 }
@@ -252,11 +286,16 @@ func (h *Handler) PostUpdate(c echo.Context) error {
 	if listErr != nil {
 		return listErr
 	}
+	tags, tagErr := h.adminService.ListTags()
+	if tagErr != nil {
+		return tagErr
+	}
 	if post.Title == "" || post.Content == "" {
 		return c.Render(http.StatusBadRequest, "admin/post_form.html", PostFormViewData{
 			PageTitle:  "编辑文章",
 			Post:       post,
 			Categories: categories,
+			Tags:       tags,
 			Error:      "标题和正文不能为空",
 			IsEdit:     true,
 		})
@@ -267,6 +306,7 @@ func (h *Handler) PostUpdate(c echo.Context) error {
 			PageTitle:  "编辑文章",
 			Post:       post,
 			Categories: categories,
+			Tags:       tags,
 			Error:      "更新失败，请检查 slug 是否重复",
 			IsEdit:     true,
 		})
@@ -324,6 +364,92 @@ func (h *Handler) CategoryCreate(c echo.Context) error {
 	}
 
 	return c.Redirect(http.StatusFound, "/admin/categories")
+}
+
+func (h *Handler) TagList(c echo.Context) error {
+	tags, err := h.adminService.ListTags()
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "admin/tags_list.html", TagListViewData{
+		PageTitle: "标签管理",
+		Tags:      tags,
+	})
+}
+
+func (h *Handler) TagNewPage(c echo.Context) error {
+	return c.Render(http.StatusOK, "admin/tag_form.html", TagFormViewData{
+		PageTitle: "新增标签",
+	})
+}
+
+func (h *Handler) TagCreate(c echo.Context) error {
+	tag := bindTagForm(c)
+	if tag.Name == "" {
+		return c.Render(http.StatusBadRequest, "admin/tag_form.html", TagFormViewData{
+			PageTitle: "新增标签",
+			Tag:       tag,
+			Error:     "标签名称不能为空",
+		})
+	}
+
+	if err := h.adminService.CreateTag(tag); err != nil {
+		return c.Render(http.StatusBadRequest, "admin/tag_form.html", TagFormViewData{
+			PageTitle: "新增标签",
+			Tag:       tag,
+			Error:     "保存失败，请检查 slug 是否重复",
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/tags")
+}
+
+func (h *Handler) TagEditPage(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+
+	tag, err := h.adminService.GetTag(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "标签不存在")
+	}
+
+	return c.Render(http.StatusOK, "admin/tag_form.html", TagFormViewData{
+		PageTitle: "编辑标签",
+		Tag:       tag,
+		IsEdit:    true,
+	})
+}
+
+func (h *Handler) TagUpdate(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "参数错误")
+	}
+
+	tag := bindTagForm(c)
+	tag.ID = id
+	if tag.Name == "" {
+		return c.Render(http.StatusBadRequest, "admin/tag_form.html", TagFormViewData{
+			PageTitle: "编辑标签",
+			Tag:       tag,
+			Error:     "标签名称不能为空",
+			IsEdit:    true,
+		})
+	}
+
+	if err := h.adminService.UpdateTag(tag); err != nil {
+		return c.Render(http.StatusBadRequest, "admin/tag_form.html", TagFormViewData{
+			PageTitle: "编辑标签",
+			Tag:       tag,
+			Error:     "更新失败，请检查 slug 是否重复",
+			IsEdit:    true,
+		})
+	}
+
+	return c.Redirect(http.StatusFound, "/admin/tags")
 }
 
 func (h *Handler) CategoryEditPage(c echo.Context) error {
@@ -577,6 +703,14 @@ func bindPostForm(c echo.Context) model.Post {
 	if c.FormValue("is_recommend") == "1" {
 		isRecommend = 1
 	}
+	tagValues := c.Request().PostForm["tag_ids"]
+	tagIDs := make([]int64, 0, len(tagValues))
+	for _, value := range tagValues {
+		tagID, err := strconv.ParseInt(value, 10, 64)
+		if err == nil && tagID > 0 {
+			tagIDs = append(tagIDs, tagID)
+		}
+	}
 
 	return model.Post{
 		Title:           c.FormValue("title"),
@@ -601,6 +735,7 @@ func bindPostForm(c echo.Context) model.Post {
 		SEOTitle:        c.FormValue("seo_title"),
 		SEOKeywords:     c.FormValue("seo_keywords"),
 		SEODescription:  c.FormValue("seo_description"),
+		TagIDs:          tagIDs,
 	}
 }
 
@@ -616,5 +751,12 @@ func bindCategoryForm(c echo.Context) model.Category {
 		SEOTitle:       c.FormValue("seo_title"),
 		SEOKeywords:    c.FormValue("seo_keywords"),
 		SEODescription: c.FormValue("seo_description"),
+	}
+}
+
+func bindTagForm(c echo.Context) model.Tag {
+	return model.Tag{
+		Name: c.FormValue("name"),
+		Slug: c.FormValue("slug"),
 	}
 }

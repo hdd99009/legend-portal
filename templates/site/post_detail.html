@@ -32,6 +32,7 @@
           <div class="detail-badges mt-4">
             {{if $post.GameGenre}}<span class="detail-badge">{{$post.GameGenre}}</span>{{end}}
             {{if $post.Type}}<span class="detail-badge">{{$post.Type}}</span>{{end}}
+            {{range $post.Tags}}<a class="detail-badge text-decoration-none" href="/tags/{{.Slug}}">{{.Name}}</a>{{end}}
           </div>
         </div>
       </section>

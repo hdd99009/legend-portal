@@ -51,6 +51,8 @@ type Post struct {
 	PublishedAt     string
 	CreatedAt       string
 	UpdatedAt       string
+	Tags            []Tag
+	TagIDs          []int64
 }
 
 type GuestbookMessage struct {
@@ -86,4 +88,11 @@ type Category struct {
 	SEOKeywords    string
 	SEODescription string
 	CreatedAt      string
+}
+
+type Tag struct {
+	ID        int64
+	Name      string
+	Slug      string
+	CreatedAt string
 }

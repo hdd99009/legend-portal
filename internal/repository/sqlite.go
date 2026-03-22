@@ -213,6 +213,72 @@ func (r *SQLiteRepository) CreateCategory(category model.Category) error {
 	return err
 }
 
+func (r *SQLiteRepository) ListTags() ([]model.Tag, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, name, slug, created_at
+		FROM post_tags
+		ORDER BY id DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []model.Tag
+	for rows.Next() {
+		var tag model.Tag
+		if err := rows.Scan(&tag.ID, &tag.Name, &tag.Slug, &tag.CreatedAt); err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+
+	return tags, rows.Err()
+}
+
+func (r *SQLiteRepository) GetTagByID(id int64) (model.Tag, error) {
+	var tag model.Tag
+	row := r.DB.QueryRow(`
+		SELECT id, name, slug, created_at
+		FROM post_tags
+		WHERE id = ?
+		LIMIT 1
+	`, id)
+
+	err := row.Scan(&tag.ID, &tag.Name, &tag.Slug, &tag.CreatedAt)
+	return tag, err
+}
+
+func (r *SQLiteRepository) GetTagBySlug(slug string) (model.Tag, error) {
+	var tag model.Tag
+	row := r.DB.QueryRow(`
+		SELECT id, name, slug, created_at
+		FROM post_tags
+		WHERE slug = ?
+		LIMIT 1
+	`, slug)
+
+	err := row.Scan(&tag.ID, &tag.Name, &tag.Slug, &tag.CreatedAt)
+	return tag, err
+}
+
+func (r *SQLiteRepository) CreateTag(tag model.Tag) error {
+	_, err := r.DB.Exec(`
+		INSERT INTO post_tags (name, slug)
+		VALUES (?, ?)
+	`, tag.Name, tag.Slug)
+	return err
+}
+
+func (r *SQLiteRepository) UpdateTag(tag model.Tag) error {
+	_, err := r.DB.Exec(`
+		UPDATE post_tags
+		SET name = ?, slug = ?
+		WHERE id = ?
+	`, tag.Name, tag.Slug, tag.ID)
+	return err
+}
+
 func (r *SQLiteRepository) UpdateCategory(category model.Category) error {
 	_, err := r.DB.Exec(`
 		UPDATE post_categories
@@ -275,7 +341,15 @@ func (r *SQLiteRepository) ListPublishedPosts(limit int) ([]model.Post, error) {
 		posts = append(posts, post)
 	}
 
-	return posts, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := r.populatePostTags(posts); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
 }
 
 func (r *SQLiteRepository) ListRecommendedPosts(limit int) ([]model.Post, error) {
@@ -331,7 +405,15 @@ func (r *SQLiteRepository) ListRecommendedPosts(limit int) ([]model.Post, error)
 		posts = append(posts, post)
 	}
 
-	return posts, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := r.populatePostTags(posts); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
 }
 
 func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
@@ -375,6 +457,17 @@ func (r *SQLiteRepository) GetPostBySlug(slug string) (model.Post, error) {
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
+	if err != nil {
+		return post, err
+	}
+	post.Tags, err = r.ListTagsByPostID(post.ID)
+	if err != nil {
+		return post, err
+	}
+	post.TagIDs = make([]int64, 0, len(post.Tags))
+	for _, tag := range post.Tags {
+		post.TagIDs = append(post.TagIDs, tag.ID)
+	}
 
 	return post, err
 }
@@ -431,7 +524,15 @@ func (r *SQLiteRepository) ListAdminPosts(limit int) ([]model.Post, error) {
 		posts = append(posts, post)
 	}
 
-	return posts, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := r.populatePostTags(posts); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
 }
 
 func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
@@ -475,11 +576,28 @@ func (r *SQLiteRepository) GetAdminPostByID(id int64) (model.Post, error) {
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	)
+	if err != nil {
+		return post, err
+	}
+	post.Tags, err = r.ListTagsByPostID(post.ID)
+	if err != nil {
+		return post, err
+	}
+	post.TagIDs = make([]int64, 0, len(post.Tags))
+	for _, tag := range post.Tags {
+		post.TagIDs = append(post.TagIDs, tag.ID)
+	}
 	return post, err
 }
 
 func (r *SQLiteRepository) CreatePost(post model.Post) error {
-	_, err := r.DB.Exec(`
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
 		INSERT INTO posts (
 			title, subtitle, slug, cover_image, summary, content, content_markdown, type, category_id, status,
 			is_top, is_recommend, game_version, server_line, game_genre, region, official_url,
@@ -491,11 +609,29 @@ func (r *SQLiteRepository) CreatePost(post model.Post) error {
 		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
 		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	postID, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	if err := r.replacePostTagsTx(tx, postID, post.TagIDs); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *SQLiteRepository) UpdatePost(post model.Post) error {
-	_, err := r.DB.Exec(`
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
 		UPDATE posts SET
 			title = ?, subtitle = ?, slug = ?, cover_image = ?, summary = ?, content = ?, content_markdown = ?,
 			type = ?, category_id = ?, status = ?, is_top = ?, is_recommend = ?, game_version = ?,
@@ -508,7 +644,139 @@ func (r *SQLiteRepository) UpdatePost(post model.Post) error {
 		post.ServerLine, post.GameGenre, post.Region, post.OfficialURL, post.DownloadURL,
 		post.QQGroup, post.SEOTitle, post.SEOKeywords, post.SEODescription, post.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if err := r.replacePostTagsTx(tx, post.ID, post.TagIDs); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *SQLiteRepository) ListTagsByPostID(postID int64) ([]model.Tag, error) {
+	rows, err := r.DB.Query(`
+		SELECT t.id, t.name, t.slug, t.created_at
+		FROM post_tags t
+		INNER JOIN post_tag_relations rel ON rel.tag_id = t.id
+		WHERE rel.post_id = ?
+		ORDER BY t.id DESC
+	`, postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []model.Tag
+	for rows.Next() {
+		var tag model.Tag
+		if err := rows.Scan(&tag.ID, &tag.Name, &tag.Slug, &tag.CreatedAt); err != nil {
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+
+	return tags, rows.Err()
+}
+
+func (r *SQLiteRepository) ListPublishedPostsByTag(tagID int64, limit int) ([]model.Post, error) {
+	rows, err := r.DB.Query(`
+		SELECT p.id, p.title, p.subtitle, p.slug, p.category_id, COALESCE(c.name, ''), p.cover_image, p.summary, p.content, p.content_markdown, p.type, p.status, p.is_top, p.is_recommend, p.game_version, p.server_line,
+		       p.game_genre, p.region, p.official_url, p.download_url, p.qq_group, p.seo_title, p.seo_keywords,
+		       p.seo_description, p.published_at, p.created_at, p.updated_at
+		FROM posts p
+		LEFT JOIN post_categories c ON c.id = p.category_id
+		INNER JOIN post_tag_relations rel ON rel.post_id = p.id
+		WHERE rel.tag_id = ? AND p.status = 'published'
+		ORDER BY p.is_top DESC, p.published_at DESC, p.id DESC
+		LIMIT ?
+	`, tagID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []model.Post
+	for rows.Next() {
+		var post model.Post
+		if err := rows.Scan(
+			&post.ID,
+			&post.Title,
+			&post.Subtitle,
+			&post.Slug,
+			&post.CategoryID,
+			&post.CategoryName,
+			&post.CoverImage,
+			&post.Summary,
+			&post.Content,
+			&post.ContentMarkdown,
+			&post.Type,
+			&post.Status,
+			&post.IsTop,
+			&post.IsRecommend,
+			&post.GameVersion,
+			&post.ServerLine,
+			&post.GameGenre,
+			&post.Region,
+			&post.OfficialURL,
+			&post.DownloadURL,
+			&post.QQGroup,
+			&post.SEOTitle,
+			&post.SEOKeywords,
+			&post.SEODescription,
+			&post.PublishedAt,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := r.populatePostTags(posts); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
+
+func (r *SQLiteRepository) populatePostTags(posts []model.Post) error {
+	for i := range posts {
+		tags, err := r.ListTagsByPostID(posts[i].ID)
+		if err != nil {
+			return err
+		}
+		posts[i].Tags = tags
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) replacePostTagsTx(tx *sql.Tx, postID int64, tagIDs []int64) error {
+	if _, err := tx.Exec(`DELETE FROM post_tag_relations WHERE post_id = ?`, postID); err != nil {
+		return err
+	}
+
+	seen := make(map[int64]struct{}, len(tagIDs))
+	for _, tagID := range tagIDs {
+		if tagID <= 0 {
+			continue
+		}
+		if _, ok := seen[tagID]; ok {
+			continue
+		}
+		seen[tagID] = struct{}{}
+		if _, err := tx.Exec(`
+			INSERT INTO post_tag_relations (post_id, tag_id)
+			VALUES (?, ?)
+		`, postID, tagID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *SQLiteRepository) ListApprovedMessages(limit int) ([]model.GuestbookMessage, error) {

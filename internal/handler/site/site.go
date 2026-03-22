@@ -29,6 +29,7 @@ type ViewData struct {
 	Posts              interface{}
 	RecommendedPosts   interface{}
 	Post               interface{}
+	Tag                interface{}
 	Messages           interface{}
 	Notice             string
 }
@@ -40,6 +41,7 @@ func New(service *service.SiteService) *Handler {
 func (h *Handler) Register(g *echo.Group) {
 	g.GET("/", h.Home)
 	g.GET("/posts/:slug", h.PostDetail)
+	g.GET("/tags/:slug", h.TagDetail)
 	g.GET("/guestbook", h.Guestbook)
 	g.POST("/guestbook", h.CreateGuestbook)
 	g.GET("/robots.txt", h.Robots)
@@ -161,6 +163,39 @@ func (h *Handler) Guestbook(c echo.Context) error {
 		CurrentPath:     c.Request().URL.Path,
 		Messages:        messages,
 		Notice:          c.QueryParam("notice"),
+	})
+}
+
+func (h *Handler) TagDetail(c echo.Context) error {
+	settings, err := h.service.SiteSettings()
+	if err != nil {
+		return err
+	}
+
+	tag, err := h.service.TagBySlug(c.Param("slug"))
+	if err != nil {
+		if err == service.ErrNotFound {
+			return c.String(http.StatusNotFound, "页面不存在")
+		}
+		return err
+	}
+
+	posts, err := h.service.PostsByTag(tag.ID, 100)
+	if err != nil {
+		return err
+	}
+
+	return c.Render(http.StatusOK, "site/tag_detail.html", ViewData{
+		SiteName:        settings.SiteName,
+		SiteTitle:       settings.SiteTitle,
+		SiteKeywords:    settings.SiteKeywords,
+		SiteDescription: settings.SiteDescription,
+		FooterText:      settings.FooterText,
+		ContactInfo:     settings.ContactInfo,
+		PageTitle:       tag.Name + " - 标签内容",
+		CurrentPath:     c.Request().URL.Path,
+		Tag:             tag,
+		Posts:           posts,
 	})
 }
 

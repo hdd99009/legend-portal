@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS post_tag_relations (
   PRIMARY KEY (post_id, tag_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_post_tag_relations_tag_id ON post_tag_relations(tag_id);
+
 CREATE TABLE IF NOT EXISTS guestbook_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nickname TEXT NOT NULL,
@@ -173,6 +175,18 @@ INSERT INTO post_categories (name, slug, sort, seo_title, seo_keywords, seo_desc
 SELECT '传奇发布', 'legend-release', 10, '传奇发布', '传奇发布,传奇私服', '最新传奇私服发布信息'
 WHERE NOT EXISTS (SELECT 1 FROM post_categories WHERE slug = 'legend-release');
 
+INSERT INTO post_tags (name, slug)
+SELECT '1.76', '176'
+WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE slug = '176');
+
+INSERT INTO post_tags (name, slug)
+SELECT '复古', 'fugu'
+WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE slug = 'fugu');
+
+INSERT INTO post_tags (name, slug)
+SELECT '三职业', 'sanzhiye'
+WHERE NOT EXISTS (SELECT 1 FROM post_tags WHERE slug = 'sanzhiye');
+
 INSERT INTO posts (
   title, subtitle, slug, summary, content, content_markdown, type, category_id, status,
   is_top, is_recommend, game_version, server_line, game_genre, region,
@@ -201,3 +215,19 @@ SELECT
   '经典传奇,传奇首发,传奇三区',
   '经典传奇三区今日首发示例内容'
 WHERE NOT EXISTS (SELECT 1 FROM posts WHERE slug = 'classic-legend-launch');
+
+INSERT INTO post_tag_relations (post_id, tag_id)
+SELECT p.id, t.id
+FROM posts p, post_tags t
+WHERE p.slug = 'classic-legend-launch' AND t.slug = '176'
+  AND NOT EXISTS (
+    SELECT 1 FROM post_tag_relations rel WHERE rel.post_id = p.id AND rel.tag_id = t.id
+  );
+
+INSERT INTO post_tag_relations (post_id, tag_id)
+SELECT p.id, t.id
+FROM posts p, post_tags t
+WHERE p.slug = 'classic-legend-launch' AND t.slug = 'fugu'
+  AND NOT EXISTS (
+    SELECT 1 FROM post_tag_relations rel WHERE rel.post_id = p.id AND rel.tag_id = t.id
+  );

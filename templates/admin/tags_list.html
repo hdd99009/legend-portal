@@ -1,4 +1,4 @@
-{{define "admin/posts_list.html"}}
+{{define "admin/tags_list.html"}}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -14,8 +14,8 @@
       <a class="navbar-brand fw-bold" href="/admin">后台管理</a>
       <div class="navbar-nav ms-auto">
         <a class="nav-link" href="/admin/categories">分类管理</a>
-        <a class="nav-link" href="/admin/tags">标签管理</a>
-        <a class="nav-link active" href="/admin/posts">文章管理</a>
+        <a class="nav-link active" href="/admin/tags">标签管理</a>
+        <a class="nav-link" href="/admin/posts">文章管理</a>
         <a class="nav-link" href="/admin/uploads">图片管理</a>
         <a class="nav-link" href="/admin/messages">留言审核</a>
         <a class="nav-link" href="/admin/settings">站点设置</a>
@@ -27,10 +27,10 @@
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h1 class="h4 mb-1">文章管理</h1>
-        <div class="text-secondary small">先做轻量版 CRUD，够日常运营使用。</div>
+        <h1 class="h4 mb-1">标签管理</h1>
+        <div class="text-secondary small">给文章打多个关键词，方便聚合、推荐和 SEO 扩展。</div>
       </div>
-      <a class="btn btn-danger" href="/admin/posts/new">新增文章</a>
+      <a class="btn btn-danger" href="/admin/tags/new">新增标签</a>
     </div>
     <div class="card border-0 shadow-sm">
       <div class="table-responsive">
@@ -38,32 +38,27 @@
           <thead class="table-light">
             <tr>
               <th>ID</th>
-              <th>标题</th>
-              <th>状态</th>
+              <th>名称</th>
               <th>Slug</th>
-              <th>更新时间</th>
+              <th>创建时间</th>
               <th class="text-end">操作</th>
             </tr>
           </thead>
           <tbody>
-            {{range .Posts}}
+            {{range .Tags}}
             <tr>
               <td>{{.ID}}</td>
-              <td>
-                <div class="fw-semibold">{{.Title}}</div>
-                <div class="small text-secondary">{{.CategoryName}} / {{.GameVersion}} / {{.ServerLine}} / {{.GameGenre}}</div>
-              </td>
-              <td><span class="badge text-bg-secondary">{{.Status}}</span></td>
+              <td>{{.Name}}</td>
               <td><code>{{.Slug}}</code></td>
-              <td>{{.UpdatedAt}}</td>
+              <td>{{.CreatedAt}}</td>
               <td class="text-end">
-                <a class="btn btn-sm btn-outline-dark" href="/posts/{{.Slug}}" target="_blank">预览</a>
-                <a class="btn btn-sm btn-dark" href="/admin/posts/{{.ID}}/edit">编辑</a>
+                <a class="btn btn-sm btn-outline-dark" href="/tags/{{.Slug}}" target="_blank">预览</a>
+                <a class="btn btn-sm btn-dark" href="/admin/tags/{{.ID}}/edit">编辑</a>
               </td>
             </tr>
             {{else}}
             <tr>
-              <td colspan="6" class="text-center text-secondary py-4">暂时没有文章，先新增一篇。</td>
+              <td colspan="5" class="text-center text-secondary py-4">暂时还没有标签。</td>
             </tr>
             {{end}}
           </tbody>

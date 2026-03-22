@@ -18,6 +18,14 @@ func NewTemplateRenderer(baseDir string) (*TemplateRenderer, error) {
 		"safeHTML": func(content string) template.HTML {
 			return template.HTML(content)
 		},
+		"hasID": func(ids []int64, target int64) bool {
+			for _, id := range ids {
+				if id == target {
+					return true
+				}
+			}
+			return false
+		},
 	}
 
 	root := filepath.Join(baseDir, "templates")
