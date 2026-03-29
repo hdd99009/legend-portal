@@ -4,6 +4,16 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "templates/**"
+      - "assets/**"
+      - "configs/**"
+      - "migrations/**"
+      - "deploy/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   deploy:
