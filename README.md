@@ -51,13 +51,13 @@ env GOCACHE=/tmp/go-build GOMODCACHE=/tmp/go-mod-cache go run ./cmd/web
 
 ## 数据文件
 
-- SQLite 数据库：`/Users/huangdandan/Documents/New project/storage/data/site.db`
-- 上传目录：`/Users/huangdandan/Documents/New project/storage/uploads`
+- SQLite 数据库：`storage/data/site.db`
+- 上传目录：`storage/uploads`
 
 ## 存储配置
 
 - 当前使用 `local` 本地存储
-- 配置文件位置：`/Users/huangdandan/Documents/New project/configs/config.yaml`
+- 配置文件位置：`configs/config.yaml`
 - 已抽象存储接口，后续可切换到 OSS / S3 / R2
 
 ## 图片上传说明
